@@ -1,7 +1,7 @@
 import { EXTENSION_NAME, getSettings, getChatState, saveState, saveSnapshot, restoreSnapshot, findPreviousSnapshotId, clearSnapshotsAfter } from './state.js';
 import { autoDetectFormat, extractFromMessage, parseTimeValue } from './parser.js';
 import { loadChineseDays } from './calendar.js';
-import { rollWeather, shouldRerollWeather } from './weather.js';
+import { rollWeather, shouldRerollWeather, getWeatherForDate } from './weather.js';
 import { detectGenderInfo, initCycleForCharacter, getCycleStatus } from './cycle.js';
 import { updateInjection, buildInjectionPrompt } from './injector.js';
 
@@ -49,7 +49,7 @@ async function onMessageReceived(messageId) {
     const extracted = extractFromMessage(msg.mes, settings);
 
     if (!extracted.time) {
-        toastr.warning('未能从AI消息中解析出时间信息，世界时间未更新。', 'World Engine', { timeOut: 4000 });
+        toastr.warning('未能从AI消息中解析出时间信息，世界时间未更新。', '天气与日历小助手', { timeOut: 4000 });
         return;
     }
 
@@ -59,11 +59,12 @@ async function onMessageReceived(messageId) {
 
     cs.currentTime = extracted.time.iso;
     if (extracted.scene) cs.currentScene = extracted.scene;
+    if (extracted.location) cs.currentLocation = extracted.location;
     cs.lastParsedMessageId = messageId;
 
     if (settings.weatherEnabled) {
-        if (shouldRerollWeather(oldDateStr, newDateStr, cs.weatherState)) {
-            cs.weatherState = rollWeather(extracted.time.month);
+        if (shouldRerollWeather(oldDateStr, newDateStr, cs.weatherState, cs.currentLocation)) {
+            cs.weatherState = await getWeatherForDate(newDateStr, cs.currentLocation, settings, cs.weatherState);
         }
     }
 
@@ -94,10 +95,11 @@ async function onMessageEdited(messageId) {
         const oldDateStr = cs.currentTime ? cs.currentTime.split('T')[0] : null;
         cs.currentTime = extracted.time.iso;
         if (extracted.scene) cs.currentScene = extracted.scene;
+        if (extracted.location) cs.currentLocation = extracted.location;
         cs.lastParsedMessageId = messageId;
 
-        if (settings.weatherEnabled && shouldRerollWeather(oldDateStr, extracted.time.dateStr, cs.weatherState)) {
-            cs.weatherState = rollWeather(extracted.time.month);
+        if (settings.weatherEnabled && shouldRerollWeather(oldDateStr, extracted.time.dateStr, cs.weatherState, cs.currentLocation)) {
+            cs.weatherState = await getWeatherForDate(extracted.time.dateStr, cs.currentLocation, settings, cs.weatherState);
         }
 
         saveSnapshot(messageId);
@@ -154,10 +156,11 @@ async function tryInitFromLatest() {
         if (extracted.time) {
             cs.currentTime = extracted.time.iso;
             if (extracted.scene) cs.currentScene = extracted.scene;
+            if (extracted.location) cs.currentLocation = extracted.location;
             cs.lastParsedMessageId = i;
 
             if (settings.weatherEnabled) {
-                cs.weatherState = rollWeather(extracted.time.month);
+                cs.weatherState = await getWeatherForDate(extracted.time.dateStr, cs.currentLocation, settings, cs.weatherState);
             }
             if (settings.cycleEnabled) {
                 updateCycleStates(extracted.time.dateStr);
@@ -191,6 +194,19 @@ function updateCycleStates(dateStr) {
             cs.cycleStates[name] = initCycleForCharacter(name, dateStr);
         } else if (gender !== 'female' && cs.cycleStates[name]) {
             delete cs.cycleStates[name];
+        }
+    }
+
+    if (Array.isArray(settings.manualCharacters)) {
+        for (const item of settings.manualCharacters) {
+            const name = item.name?.trim();
+            const gender = item.gender;
+            if (!name) continue;
+            if (gender === 'female' && !cs.cycleStates[name]) {
+                cs.cycleStates[name] = initCycleForCharacter(name, dateStr);
+            } else if (gender !== 'female' && cs.cycleStates[name]) {
+                delete cs.cycleStates[name];
+            }
         }
     }
 }
@@ -232,8 +248,9 @@ async function handleTimeCommand(input) {
         else if (unit === 'm') d.setMinutes(d.getMinutes() + val);
         cs.currentTime = d.toISOString().slice(0, 19);
 
+        const dateStr = cs.currentTime.split('T')[0];
         if (settings.weatherEnabled) {
-            cs.weatherState = rollWeather(d.getMonth() + 1);
+            cs.weatherState = await getWeatherForDate(dateStr, cs.currentLocation, settings, cs.weatherState);
         }
         saveState();
         refreshStatusDisplay();
@@ -245,7 +262,7 @@ async function handleTimeCommand(input) {
     if (parsed) {
         cs.currentTime = parsed.iso;
         if (settings.weatherEnabled) {
-            cs.weatherState = rollWeather(parsed.month);
+            cs.weatherState = await getWeatherForDate(parsed.dateStr, cs.currentLocation, settings, cs.weatherState);
         }
         saveState();
         refreshStatusDisplay();
@@ -261,7 +278,7 @@ function buildSettingsHtml() {
     <div id="we-settings-panel" class="extension_settings">
         <div class="inline-drawer">
             <div class="inline-drawer-toggle inline-drawer-header">
-                <b>天气与日历小助手</b>
+                <b>🌤 天气与日历小助手</b>
                 <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
             </div>
             <div class="inline-drawer-content">
@@ -321,12 +338,20 @@ function buildSettingsHtml() {
                             <input type="text" id="we-scene-key" placeholder="如：scene" />
                         </div>
                         <div class="we-row">
+                            <label>地点字段Key</label>
+                            <input type="text" id="we-location-key" placeholder="如：location" />
+                        </div>
+                        <div class="we-row">
                             <label>时间正则(高级)</label>
                             <input type="text" id="we-time-regex" placeholder="留空=使用默认解析" />
                         </div>
                         <div class="we-row">
                             <label>场景正则(高级)</label>
                             <input type="text" id="we-scene-regex" placeholder="留空=使用默认解析" />
+                        </div>
+                        <div class="we-row">
+                            <label>地点正则(高级)</label>
+                            <input type="text" id="we-location-regex" placeholder="留空=使用默认解析" />
                         </div>
                         <div class="we-row">
                             <label>去除NSFW进度</label>
@@ -379,6 +404,22 @@ function buildSettingsHtml() {
                             <input type="checkbox" id="we-weather-enabled" />
                         </div>
                         <div class="we-row">
+                            <label>默认城市</label>
+                            <input type="text" id="we-default-city" placeholder="未解析到地点时使用" />
+                        </div>
+                        <div class="we-row">
+                            <label>连续性概率</label>
+                            <input type="text" id="we-weather-continuity" placeholder="0-100" />
+                        </div>
+                        <div class="we-row">
+                            <label>温度抖动(℃)</label>
+                            <input type="text" id="we-weather-jitter" placeholder="如 2" />
+                        </div>
+                        <div class="we-row">
+                            <label>雨天偏向(%)</label>
+                            <input type="text" id="we-weather-rain-bias" placeholder="如 20" />
+                        </div>
+                        <div class="we-row">
                             <button class="we-btn" id="we-reroll-weather">🎲 重新Roll天气</button>
                         </div>
                     </div>
@@ -396,6 +437,17 @@ function buildSettingsHtml() {
                         </div>
                         <div class="we-hint">自动扫描角色/User设定中的性别关键词，为女性角色生成经期周期。</div>
                         <div id="we-gender-list"></div>
+                        <div class="we-hint" style="margin-top:6px;">手动添加角色（适用于世界观/多角色卡）</div>
+                        <div class="we-row">
+                            <input type="text" id="we-manual-name" placeholder="角色名" style="flex:1" />
+                            <select id="we-manual-gender" style="width:90px;">
+                                <option value="female">女</option>
+                                <option value="male">男</option>
+                                <option value="unknown">未知</option>
+                            </select>
+                            <button class="we-btn" id="we-add-manual">+添加</button>
+                        </div>
+                        <div id="we-manual-list"></div>
                         <div id="we-cycle-list"></div>
                         <div class="we-row">
                             <button class="we-btn" id="we-rescan-cycle">🔄 重新扫描角色</button>
@@ -469,9 +521,9 @@ function bindSettingsEvents() {
                 saveState();
                 refreshStatusDisplay();
                 updateInjection();
-                toastr.success(`起始时间已设为 ${parsed.iso}`, 'World Engine');
+                toastr.success(`起始时间已设为 ${parsed.iso}`, '天气与日历小助手');
             } else {
-                toastr.error('时间格式无法解析', 'World Engine');
+                toastr.error('时间格式无法解析', '天气与日历小助手');
             }
         }
         saveState();
@@ -494,12 +546,20 @@ function bindSettingsEvents() {
         getSettings().sceneKey = this.value.trim();
         saveState();
     });
+    $('#we-location-key').on('change', function () {
+        getSettings().locationKey = this.value.trim();
+        saveState();
+    });
     $('#we-time-regex').on('change', function () {
         getSettings().timeRegexCustom = this.value.trim();
         saveState();
     });
     $('#we-scene-regex').on('change', function () {
         getSettings().sceneRegexCustom = this.value.trim();
+        saveState();
+    });
+    $('#we-location-regex').on('change', function () {
+        getSettings().locationRegexCustom = this.value.trim();
         saveState();
     });
     $('#we-strip-nsfw').on('change', function () {
@@ -510,7 +570,7 @@ function bindSettingsEvents() {
     $('#we-auto-detect').on('click', function () {
         const context = SillyTavern.getContext();
         if (!context.chat || context.chat.length === 0) {
-            toastr.warning('当前没有聊天记录', 'World Engine');
+            toastr.warning('当前没有聊天记录', '天气与日历小助手');
             return;
         }
         let found = false;
@@ -532,14 +592,18 @@ function bindSettingsEvents() {
                     settings.sceneKey = detected.sceneKey;
                     $('#we-scene-key').val(detected.sceneKey);
                 }
+                if (detected.locationKey) {
+                    settings.locationKey = detected.locationKey;
+                    $('#we-location-key').val(detected.locationKey);
+                }
                 saveState();
-                toastr.success(`检测到标签: ${detected.tagWrapper || '无'}, 时间Key: ${detected.timeKey || '无'}, 场景Key: ${detected.sceneKey || '无'}`, 'World Engine', { timeOut: 5000 });
+                toastr.success(`检测到标签: ${detected.tagWrapper || '无'}, 时间Key: ${detected.timeKey || '无'}, 场景Key: ${detected.sceneKey || '无'}, 地点Key: ${detected.locationKey || '无'}`, '天气与日历小助手', { timeOut: 5000 });
                 found = true;
                 break;
             }
         }
         if (!found) {
-            toastr.warning('未能从AI消息中自动检测到字段格式', 'World Engine');
+            toastr.warning('未能从AI消息中自动检测到字段格式', '天气与日历小助手');
         }
     });
 
@@ -561,7 +625,7 @@ function bindSettingsEvents() {
         const character = $('#we-event-char').val().trim();
 
         if (!name || !dateRaw) {
-            toastr.warning('名称和日期不能为空', 'World Engine');
+            toastr.warning('名称和日期不能为空', '天气与日历小助手');
             return;
         }
 
@@ -573,7 +637,7 @@ function bindSettingsEvents() {
             year = dateRaw.slice(0, 4);
             monthDay = dateRaw.slice(5);
         } else {
-            toastr.warning('日期格式应为 MM-DD 或 YYYY-MM-DD', 'World Engine');
+            toastr.warning('日期格式应为 MM-DD 或 YYYY-MM-DD', '天气与日历小助手');
             return;
         }
 
@@ -587,7 +651,7 @@ function bindSettingsEvents() {
         $('#we-event-name').val('');
         $('#we-event-date').val('');
         $('#we-event-char').val('');
-        toastr.success('纪念日已添加', 'World Engine');
+        toastr.success('纪念日已添加', '天气与日历小助手');
         updateInjection();
     });
 
@@ -597,18 +661,40 @@ function bindSettingsEvents() {
         updateInjection();
     });
 
-    $('#we-reroll-weather').on('click', function () {
+    $('#we-default-city').on('change', function () {
+        getSettings().defaultCity = this.value.trim();
+        saveState();
+    });
+
+    $('#we-weather-continuity').on('change', function () {
+        const v = parseInt(this.value);
+        getSettings().weatherContinuity = isNaN(v) ? 70 : Math.max(0, Math.min(100, v));
+        saveState();
+    });
+
+    $('#we-weather-jitter').on('change', function () {
+        const v = parseInt(this.value);
+        getSettings().weatherTempJitter = isNaN(v) ? 2 : Math.max(0, v);
+        saveState();
+    });
+
+    $('#we-weather-rain-bias').on('change', function () {
+        const v = parseInt(this.value);
+        getSettings().weatherRainBias = isNaN(v) ? 20 : Math.max(0, Math.min(100, v));
+        saveState();
+    });
+
+    $('#we-reroll-weather').on('click', async function () {
         const cs = getChatState();
         if (!cs.currentTime) {
-            toastr.warning('尚无世界时间', 'World Engine');
+            toastr.warning('尚无世界时间', '天气与日历小助手');
             return;
         }
-        const d = new Date(cs.currentTime);
-        cs.weatherState = rollWeather(d.getMonth() + 1);
+        cs.weatherState = await getWeatherForDate(cs.currentTime.split('T')[0], cs.currentLocation, getSettings(), cs.weatherState);
         saveState();
         refreshStatusDisplay();
         updateInjection();
-        toastr.success(`天气已重Roll: ${cs.weatherState.cn}`, 'World Engine');
+        toastr.success(`天气已更新: ${cs.weatherState.cn}`, '天气与日历小助手');
     });
 
     $('#we-cycle-enabled').on('change', function () {
@@ -617,10 +703,36 @@ function bindSettingsEvents() {
         updateInjection();
     });
 
+    $('#we-add-manual').on('click', function () {
+        const name = $('#we-manual-name').val().trim();
+        const gender = $('#we-manual-gender').val();
+        if (!name) {
+            toastr.warning('角色名不能为空', '天气与日历小助手');
+            return;
+        }
+        const settings = getSettings();
+        if (!Array.isArray(settings.manualCharacters)) settings.manualCharacters = [];
+        const existing = settings.manualCharacters.find(x => x.name === name);
+        if (existing) {
+            existing.gender = gender;
+        } else {
+            settings.manualCharacters.push({ name, gender });
+        }
+        saveState();
+        renderManualList();
+        $('#we-manual-name').val('');
+        toastr.success('已添加/更新角色', '天气与日历小助手');
+        if (getChatState().currentTime) {
+            updateCycleStates(getChatState().currentTime.split('T')[0]);
+            refreshStatusDisplay();
+            updateInjection();
+        }
+    });
+
     $('#we-rescan-cycle').on('click', function () {
         const cs = getChatState();
         if (!cs.currentTime) {
-            toastr.warning('尚无世界时间', 'World Engine');
+            toastr.warning('尚无世界时间', '天气与日历小助手');
             return;
         }
         cs.cycleStates = {};
@@ -628,13 +740,14 @@ function bindSettingsEvents() {
         saveState();
         refreshStatusDisplay();
         updateInjection();
-        toastr.success('已重新扫描角色生理状态', 'World Engine');
+        toastr.success('已重新扫描角色生理状态', '天气与日历小助手');
     });
 
     $('#we-reinit-latest').on('click', async function () {
         const cs = getChatState();
         cs.currentTime = null;
         cs.currentScene = '';
+        cs.currentLocation = '';
         cs.snapshots = {};
         cs.weatherState = null;
         cs.lastParsedMessageId = -1;
@@ -642,9 +755,9 @@ function bindSettingsEvents() {
         refreshStatusDisplay();
         await updateInjection();
         if (cs.currentTime) {
-            toastr.success(`从最新AI初始化成功: ${cs.currentTime}`, 'World Engine');
+            toastr.success(`从最新AI初始化成功: ${cs.currentTime}`, '天气与日历小助手');
         } else {
-            toastr.warning('未找到可解析的AI消息', 'World Engine');
+            toastr.warning('未找到可解析的AI消息', '天气与日历小助手');
         }
     });
 
@@ -652,6 +765,7 @@ function bindSettingsEvents() {
         const cs = getChatState();
         cs.currentTime = null;
         cs.currentScene = '';
+        cs.currentLocation = '';
         cs.snapshots = {};
         cs.weatherState = null;
         cs.lastParsedMessageId = -1;
@@ -667,6 +781,7 @@ function bindSettingsEvents() {
             if (extracted.time) {
                 cs.currentTime = extracted.time.iso;
                 if (extracted.scene) cs.currentScene = extracted.scene;
+                if (extracted.location) cs.currentLocation = extracted.location;
                 cs.lastParsedMessageId = i;
                 saveSnapshot(i);
                 count++;
@@ -674,8 +789,7 @@ function bindSettingsEvents() {
         }
 
         if (cs.currentTime && settings.weatherEnabled) {
-            const d = new Date(cs.currentTime);
-            cs.weatherState = rollWeather(d.getMonth() + 1);
+            cs.weatherState = await getWeatherForDate(cs.currentTime.split('T')[0], cs.currentLocation, settings, cs.weatherState);
         }
         if (cs.currentTime && settings.cycleEnabled) {
             updateCycleStates(cs.currentTime.split('T')[0]);
@@ -684,7 +798,7 @@ function bindSettingsEvents() {
         saveState();
         refreshStatusDisplay();
         await updateInjection();
-        toastr.success(`扫描完毕，共解析 ${count} 条时间记录`, 'World Engine');
+        toastr.success(`扫描完毕，共解析 ${count} 条时间记录`, '天气与日历小助手');
     });
 
     $('#we-reset-state').on('click', async function () {
@@ -695,7 +809,7 @@ function bindSettingsEvents() {
         context.setExtensionPrompt('worldEngine', '', 1, 0);
         saveState();
         refreshStatusDisplay();
-        toastr.info('世界状态已清除', 'World Engine');
+        toastr.info('世界状态已清除', '天气与日历小助手');
     });
 
     $('#we-preview-prompt').on('click', async function () {
@@ -718,6 +832,19 @@ function bindSettingsEvents() {
             updateInjection();
         }
     });
+
+    $('#we-settings-panel').on('click', '.we-del-manual', function () {
+        const name = $(this).data('name');
+        const settings = getSettings();
+        settings.manualCharacters = (settings.manualCharacters || []).filter(x => x.name !== name);
+        saveState();
+        renderManualList();
+        if (getChatState().currentTime) {
+            updateCycleStates(getChatState().currentTime.split('T')[0]);
+            refreshStatusDisplay();
+            updateInjection();
+        }
+    });
 }
 
 function loadSettingsToUI() {
@@ -729,15 +856,22 @@ function loadSettingsToUI() {
     $('#we-tag-wrapper').val(s.tagWrapper);
     $('#we-time-key').val(s.timeKey);
     $('#we-scene-key').val(s.sceneKey);
+    $('#we-location-key').val(s.locationKey);
     $('#we-time-regex').val(s.timeRegexCustom);
     $('#we-scene-regex').val(s.sceneRegexCustom);
+    $('#we-location-regex').val(s.locationRegexCustom);
     $('#we-strip-nsfw').prop('checked', s.stripNSFWProgress);
     $('#we-calendar-enabled').prop('checked', s.calendarEnabled);
     $('#we-events-enabled').prop('checked', s.eventsEnabled);
     $('#we-weather-enabled').prop('checked', s.weatherEnabled);
+    $('#we-default-city').val(s.defaultCity);
+    $('#we-weather-continuity').val(s.weatherContinuity);
+    $('#we-weather-jitter').val(s.weatherTempJitter);
+    $('#we-weather-rain-bias').val(s.weatherRainBias);
     $('#we-cycle-enabled').prop('checked', s.cycleEnabled);
     renderEventList();
     renderGenderOverrideList();
+    renderManualList();
     renderCycleList();
 }
 
@@ -804,6 +938,25 @@ function renderGenderOverrideList() {
     }
 }
 
+function renderManualList() {
+    const settings = getSettings();
+    const container = $('#we-manual-list');
+    container.empty();
+
+    if (!settings.manualCharacters || settings.manualCharacters.length === 0) {
+        container.append('<div class="we-hint">尚未手动添加角色。</div>');
+        return;
+    }
+
+    for (const item of settings.manualCharacters) {
+        const line = $(`<div class="we-row" style="margin-bottom:4px;">
+            <span style="font-size:12px;">${item.name}（${item.gender}）</span>
+            <button class="we-btn we-btn-danger we-del-manual" data-name="${item.name}" style="margin-left:auto;">✕</button>
+        </div>`);
+        container.append(line);
+    }
+}
+
 function renderCycleList() {
     const cs = getChatState();
     const container = $('#we-cycle-list');
@@ -840,8 +993,10 @@ function refreshStatusDisplay() {
     } else {
         lines.push(`🕐 世界时间: ${cs.currentTime}`);
         if (cs.currentScene) lines.push(`📍 场景: ${cs.currentScene}`);
+        if (cs.currentLocation) lines.push(`🏙 地点: ${cs.currentLocation}`);
         if (cs.weatherState) {
-            lines.push(`🌤 天气: ${cs.weatherState.cn} (${cs.weatherState.en}) ${cs.weatherState.temp}°C${cs.weatherState.extreme ? ' ⚠极端' : ''}`);
+            const src = cs.weatherState.source ? `(${cs.weatherState.source})` : '';
+            lines.push(`🌤 天气: ${cs.weatherState.cn} ${cs.weatherState.temp}°C ${src}${cs.weatherState.extreme ? ' ⚠极端' : ''}`);
         }
         lines.push(`🌐 地区: ${settings.countryCode}`);
         lines.push(`📦 快照数: ${Object.keys(cs.snapshots).length}`);
@@ -852,5 +1007,6 @@ function refreshStatusDisplay() {
 
     $('#we-status-display').text(lines.join('\n'));
     renderGenderOverrideList();
+    renderManualList();
     renderCycleList();
 }
