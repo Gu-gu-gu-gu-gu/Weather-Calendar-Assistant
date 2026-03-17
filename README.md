@@ -56,12 +56,6 @@
 
 ---
 
-## 📜 许可证
-
-本插件采用 MIT 许可证发布。
-
----
-
 ## ❤️ 致谢
 
 - [chinese-days](https://github.com/vsme/chinese-days)（MIT）
