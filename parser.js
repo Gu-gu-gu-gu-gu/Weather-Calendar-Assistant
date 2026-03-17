@@ -1,5 +1,6 @@
 const TIME_KEYS_DEFAULT = ['time', 'date', '时间', '日期', 'datetime'];
 const SCENE_KEYS_DEFAULT = ['scene', 'location', '场景', '地点', '地区', 'place'];
+const LOCATION_KEYS_DEFAULT = ['location', '地点', '地区', 'place', '城市', 'city'];
 
 export function autoDetectFormat(messageText) {
     const result = {
@@ -7,6 +8,7 @@ export function autoDetectFormat(messageText) {
         fields: [],
         timeKey: null,
         sceneKey: null,
+        locationKey: null,
     };
 
     const tagMatch = messageText.match(/<([a-zA-Z_][\w-]*)>([\s\S]*?)<\/\1>/);
@@ -29,6 +31,9 @@ export function autoDetectFormat(messageText) {
         if (!result.sceneKey && SCENE_KEYS_DEFAULT.includes(keyLower)) {
             result.sceneKey = m[1];
         }
+        if (!result.locationKey && LOCATION_KEYS_DEFAULT.includes(keyLower)) {
+            result.locationKey = m[1];
+        }
     }
     return result;
 }
@@ -36,14 +41,14 @@ export function autoDetectFormat(messageText) {
 export function parseTimeValue(raw) {
     if (!raw) return null;
     const s = raw.trim();
-    const dateMatch = s.match(/(\d{4})[.\-\/年·．](\d{1,2})[.\-\/月·．](\d{1,2})[日]?/);
+    const dateMatch = s.match(/(\d{4})[.\-\/年](\d{1,2})[.\-\/月](\d{1,2})[日]?/);
     if (!dateMatch) return null;
 
     const year = parseInt(dateMatch[1]);
     const month = parseInt(dateMatch[2]);
     const day = parseInt(dateMatch[3]);
 
-    const timeMatches = [...s.matchAll(/(\d{1,2})[:：](\d{2})/g)];
+    const timeMatches = [...s.matchAll(/(\d{1,2}):(\d{2})/g)];
     let hour = 8, minute = 0;
     if (timeMatches.length > 0) {
         hour = parseInt(timeMatches[0][1]);
@@ -71,7 +76,7 @@ export function parseTimeValue(raw) {
 }
 
 export function extractFromMessage(messageText, settings) {
-    const result = { time: null, scene: null, rawTime: null };
+    const result = { time: null, scene: null, location: null, rawTime: null };
     let content = messageText;
 
     if (settings.tagWrapper) {
@@ -84,11 +89,7 @@ export function extractFromMessage(messageText, settings) {
         try {
             const m = content.match(new RegExp(settings.timeRegexCustom));
             if (m) {
-                if (m[2]) {
-                    result.rawTime = `${m[1]} ${m[2]}`.trim();
-                } else {
-                    result.rawTime = m[1] || m[0];
-                }
+                result.rawTime = m[1] || m[0];
                 result.time = parseTimeValue(result.rawTime);
             }
         } catch (_) { }
@@ -134,6 +135,30 @@ export function extractFromMessage(messageText, settings) {
             const m = content.match(re);
             if (m) {
                 result.scene = m[1].trim();
+                break;
+            }
+        }
+    }
+
+    if (settings.locationRegexCustom) {
+        try {
+            const m = content.match(new RegExp(settings.locationRegexCustom));
+            if (m) result.location = (m[1] || m[0]).trim();
+        } catch (_) { }
+    }
+
+    if (!result.location && settings.locationKey) {
+        const re = new RegExp(escapeRegex(settings.locationKey) + '\\s*[:：]\\s*(.+)', 'im');
+        const m = content.match(re);
+        if (m) result.location = m[1].trim();
+    }
+
+    if (!result.location) {
+        for (const k of LOCATION_KEYS_DEFAULT) {
+            const re = new RegExp(escapeRegex(k) + '\\s*[:：]\\s*(.+)', 'im');
+            const m = content.match(re);
+            if (m) {
+                result.location = m[1].trim();
                 break;
             }
         }
