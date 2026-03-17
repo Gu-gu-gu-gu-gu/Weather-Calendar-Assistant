@@ -6,11 +6,11 @@
 
 ## ✨ 主要功能
 
-- 解析 AI 回复中的时间/场景字段，自动更新世界时间
+- 解析 AI 回复中的时间/场景/地点字段，自动更新世界时间
 - 中国地区 2004-2026 使用 chinese-days（含农历/调休）
 - 其他地区使用 Nager.Date 公共 API
 - 纪念日与生日提醒（支持 MM-DD / YYYY-MM-DD）
-- 天气 Roll 点（按季节权重，含极端天气）
+- 天气使用 Open-Meteo 真实数据（无 API Key）
 - 女性角色生理周期模拟（可手动覆盖性别）
 - 支持回退与重新初始化
 
@@ -38,6 +38,7 @@
 - 若未解析出时间，会提示并停止注入
 - 支持手动填写正则与字段 Key
 - 支持从最新 AI 消息初始化
+- 若无法解析地点，则使用设置里的默认城市
 
 ---
 
@@ -56,7 +57,16 @@
 
 ---
 
+## ⚠️ 关于 Open-Meteo
+
+- 本插件使用 Open‑Meteo 提供的地理编码与天气数据
+- 无需 API Key，适用于非商业用途
+- 若时间线超出预报范围，会使用历史同日数据作为参考
+
+---
+
 ## ❤️ 致谢
 
 - [chinese-days](https://github.com/vsme/chinese-days)（MIT）
 - [Nager.Date](https://date.nager.at)（Public API）
+- [Open-Meteo](https://open-meteo.com)（Open Weather API）
