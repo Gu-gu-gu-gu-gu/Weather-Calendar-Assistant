@@ -5,8 +5,10 @@ export const DEFAULT_SETTINGS = {
     tagWrapper: '',
     timeKey: 'time',
     sceneKey: 'scene',
+    locationKey: 'location',
     timeRegexCustom: '',
     sceneRegexCustom: '',
+    locationRegexCustom: '',
     countryCode: 'CN',
     customStartTime: '',
     initFromLatest: true,
@@ -14,8 +16,13 @@ export const DEFAULT_SETTINGS = {
     eventsEnabled: true,
     events: [],
     weatherEnabled: true,
+    defaultCity: '',
+    weatherContinuity: 70,
+    weatherTempJitter: 2,
+    weatherRainBias: 20,
     cycleEnabled: true,
     genderOverrides: {},
+    manualCharacters: [],
     stripNSFWProgress: true,
     injectionPosition: 1,
     injectionDepth: 4,
@@ -41,6 +48,7 @@ export function getChatState() {
         context.chatMetadata.worldEngine = {
             currentTime: null,
             currentScene: '',
+            currentLocation: '',
             snapshots: {},
             weatherState: null,
             cycleStates: {},
@@ -61,6 +69,7 @@ export function saveSnapshot(messageId) {
     cs.snapshots[String(messageId)] = {
         currentTime: cs.currentTime,
         currentScene: cs.currentScene,
+        currentLocation: cs.currentLocation,
         weatherState: cs.weatherState ? JSON.parse(JSON.stringify(cs.weatherState)) : null,
         cycleStates: JSON.parse(JSON.stringify(cs.cycleStates)),
     };
@@ -73,6 +82,7 @@ export function restoreSnapshot(messageId) {
     if (!snap) return false;
     cs.currentTime = snap.currentTime;
     cs.currentScene = snap.currentScene;
+    cs.currentLocation = snap.currentLocation;
     cs.weatherState = snap.weatherState;
     cs.cycleStates = JSON.parse(JSON.stringify(snap.cycleStates));
     saveState();
