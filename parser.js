@@ -36,14 +36,14 @@ export function autoDetectFormat(messageText) {
 export function parseTimeValue(raw) {
     if (!raw) return null;
     const s = raw.trim();
-    const dateMatch = s.match(/(\d{4})[.\-\/年](\d{1,2})[.\-\/月](\d{1,2})[日]?/);
+    const dateMatch = s.match(/(\d{4})[.\-\/年·．](\d{1,2})[.\-\/月·．](\d{1,2})[日]?/);
     if (!dateMatch) return null;
 
     const year = parseInt(dateMatch[1]);
     const month = parseInt(dateMatch[2]);
     const day = parseInt(dateMatch[3]);
 
-    const timeMatches = [...s.matchAll(/(\d{1,2}):(\d{2})/g)];
+    const timeMatches = [...s.matchAll(/(\d{1,2})[:：](\d{2})/g)];
     let hour = 8, minute = 0;
     if (timeMatches.length > 0) {
         hour = parseInt(timeMatches[0][1]);
@@ -84,7 +84,11 @@ export function extractFromMessage(messageText, settings) {
         try {
             const m = content.match(new RegExp(settings.timeRegexCustom));
             if (m) {
-                result.rawTime = m[1] || m[0];
+                if (m[2]) {
+                    result.rawTime = `${m[1]} ${m[2]}`.trim();
+                } else {
+                    result.rawTime = m[1] || m[0];
+                }
                 result.time = parseTimeValue(result.rawTime);
             }
         } catch (_) { }
