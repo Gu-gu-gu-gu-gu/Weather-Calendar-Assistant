@@ -1,5 +1,5 @@
 import { getSettings, getChatState } from './state.js';
-import { getHolidayInfo, getNextHoliday, checkEvents } from './calendar.js';
+import { getHolidayInfo, getNextHoliday, checkEvents, loadChineseDays } from './calendar.js';
 import { getWeatherPrompt } from './weather.js';
 import { getCycleStatus, advanceCycle } from './cycle.js';
 
@@ -8,6 +8,8 @@ export async function buildInjectionPrompt() {
     const cs = getChatState();
 
     if (!settings.enabled || !cs.currentTime) return '';
+
+    await loadChineseDays();
 
     const parsed = new Date(cs.currentTime);
     if (isNaN(parsed.getTime())) return '';
@@ -29,28 +31,51 @@ export async function buildInjectionPrompt() {
     else if (hour >= 19 && hour < 22) timePeriod = '夜晚';
     else timePeriod = '深夜';
 
-    sections.push(`日期：${parsed.getFullYear()}年${parsed.getMonth() + 1}月${parsed.getDate()}日 ${timeStr}（${timePeriod}）`);
+    if (settings.worldEra === 'ancient') {
+        const lunarInfo = getLunarInfo(dateStr);
+        const lunarDate = lunarInfo.lunarDate || '农历未知';
+        const eraYearText = buildEraYearText(cs, parsed.getFullYear());
+        const ancientTime = formatAncientTime(hour, minute);
+        sections.push(`日期：${eraYearText}${lunarDate} ${ancientTime}（${timePeriod}）`);
+    } else {
+        sections.push(`日期：${parsed.getFullYear()}年${parsed.getMonth() + 1}月${parsed.getDate()}日 ${timeStr}（${timePeriod}）`);
+    }
 
     if (cs.currentScene) {
         sections.push(`场景：${cs.currentScene}`);
     }
 
     if (settings.calendarEnabled) {
-        try {
-            const holidayInfo = await getHolidayInfo(dateStr, settings.countryCode);
-            sections.push(`星期：${holidayInfo.weekDayName} ｜ 日历类型：${holidayInfo.dayType}`);
-            if (holidayInfo.isHoliday && holidayInfo.holidayLocalName) {
-                sections.push(`🎉 今日节日：${holidayInfo.holidayLocalName}`);
+        if (settings.worldEra === 'ancient') {
+            const lunarInfo = getLunarInfo(dateStr);
+            if (lunarInfo.lunarDate) {
+                sections.push(`农历：${lunarInfo.lunarDate}`);
             }
-            if (holidayInfo.lunarDate) {
-                sections.push(`农历：${holidayInfo.lunarDate}`);
+            const solarTerm = getSolarTermName(dateStr);
+            if (solarTerm) {
+                sections.push(`节气：${solarTerm}`);
             }
-            const nextH = await getNextHoliday(dateStr, settings.countryCode);
-            if (nextH) {
-                sections.push(`下一个节日：${nextH.localName || nextH.name}（${nextH.dateStr}，还有${nextH.daysUntil}天）`);
+            const festival = getTraditionalFestival(dateStr, lunarInfo.lunarRaw);
+            if (festival) {
+                sections.push(`🎉 今日佳节：${festival}`);
             }
-        } catch (e) {
-            console.warn('[WorldEngine] 日历注入出错', e);
+        } else {
+            try {
+                const holidayInfo = await getHolidayInfo(dateStr, settings.countryCode);
+                sections.push(`星期：${holidayInfo.weekDayName} ｜ 日历类型：${holidayInfo.dayType}`);
+                if (holidayInfo.isHoliday && holidayInfo.holidayLocalName) {
+                    sections.push(`🎉 今日节日：${holidayInfo.holidayLocalName}`);
+                }
+                if (holidayInfo.lunarDate) {
+                    sections.push(`农历：${holidayInfo.lunarDate}`);
+                }
+                const nextH = await getNextHoliday(dateStr, settings.countryCode);
+                if (nextH) {
+                    sections.push(`下一个节日：${nextH.localName || nextH.name}（${nextH.dateStr}，还有${nextH.daysUntil}天）`);
+                }
+            } catch (e) {
+                console.warn('[WorldEngine] 日历注入出错', e);
+            }
         }
     }
 
@@ -76,7 +101,7 @@ export async function buildInjectionPrompt() {
     }
 
     if (settings.weatherEnabled && cs.weatherState) {
-        const wp = getWeatherPrompt(cs.weatherState);
+        const wp = getWeatherPrompt(cs.weatherState, settings.worldEra);
         if (wp) sections.push(wp);
     }
 
@@ -86,8 +111,9 @@ export async function buildInjectionPrompt() {
             const updated = advanceCycle({ ...data }, dateStr);
             cs.cycleStates[name] = updated;
             const status = getCycleStatus(updated, dateStr);
-            if (status && status.description) {
-                cycleLines.push(`- ${name}：${status.description}`);
+            const desc = formatCycleDescription(status, settings.worldEra);
+            if (desc) {
+                cycleLines.push(`- ${name}：${desc}`);
             }
         }
         if (cycleLines.length > 0) {
@@ -117,4 +143,155 @@ export async function updateInjection() {
         settings.injectionPosition,
         settings.injectionDepth,
     );
+}
+
+function buildEraYearText(cs, currentGregorianYear) {
+    if (!cs.eraYearLabel || !cs.eraYearBase || !cs.eraYearBaseGregorian) {
+        return '';
+    }
+    const diff = currentGregorianYear - cs.eraYearBaseGregorian;
+    const eraYear = Math.max(1, cs.eraYearBase + diff);
+    return `${cs.eraYearLabel}${formatEraYear(eraYear)} `;
+}
+
+function formatEraYear(n) {
+    if (n === 1) return '元年';
+    return `${toChineseNumber(n)}年`;
+}
+
+function toChineseNumber(num) {
+    const digits = ['零','一','二','三','四','五','六','七','八','九'];
+    if (num < 10) return digits[num];
+    if (num < 20) return num === 10 ? '十' : `十${digits[num - 10]}`;
+    if (num < 100) {
+        const tens = Math.floor(num / 10);
+        const ones = num % 10;
+        return ones === 0 ? `${digits[tens]}十` : `${digits[tens]}十${digits[ones]}`;
+    }
+    return String(num);
+}
+
+function formatAncientTime(hour, minute) {
+    const shichen = [
+        { name: '子', start: 23, end: 1 },
+        { name: '丑', start: 1, end: 3 },
+        { name: '寅', start: 3, end: 5 },
+        { name: '卯', start: 5, end: 7 },
+        { name: '辰', start: 7, end: 9 },
+        { name: '巳', start: 9, end: 11 },
+        { name: '午', start: 11, end: 13 },
+        { name: '未', start: 13, end: 15 },
+        { name: '申', start: 15, end: 17 },
+        { name: '酉', start: 17, end: 19 },
+        { name: '戌', start: 19, end: 21 },
+        { name: '亥', start: 21, end: 23 },
+    ];
+
+    let name = '子';
+    for (const s of shichen) {
+        if (s.start < s.end) {
+            if (hour >= s.start && hour < s.end) { name = s.name; break; }
+        } else {
+            if (hour >= s.start || hour < s.end) { name = s.name; break; }
+        }
+    }
+
+    const ke = Math.min(4, Math.max(1, Math.floor(minute / 15) + 1));
+    const keText = ['一刻', '二刻', '三刻', '四刻'][ke - 1];
+    return `${name}时${keText}`;
+}
+
+function getLunarInfo(dateStr) {
+    const cd = window.chineseDays;
+    if (!cd || typeof cd.getLunarDate !== 'function') {
+        return { lunarDate: '', lunarRaw: null, lunarYearCN: '' };
+    }
+    try {
+        const lunar = cd.getLunarDate(dateStr);
+        const mon = lunar?.lunarMonCN || lunar?.monthStr || '';
+        const day = lunar?.lunarDayCN || lunar?.dayStr || '';
+        const leap = lunar?.isLeap ? '闰' : '';
+        const lunarDate = mon && day ? `${leap}${mon}${day}` : '';
+        const lunarYearCN = lunar?.lunarYearCN || '';
+        return { lunarDate, lunarRaw: lunar, lunarYearCN };
+    } catch (e) {
+        return { lunarDate: '', lunarRaw: null, lunarYearCN: '' };
+    }
+}
+
+function getSolarTermName(dateStr) {
+    const cd = window.chineseDays;
+    if (!cd) return '';
+    try {
+        if (typeof cd.getSolarTermsInRange === 'function') {
+            const list = cd.getSolarTermsInRange(dateStr);
+            if (Array.isArray(list) && list.length > 0 && list[0].name) return list[0].name;
+        }
+        if (typeof cd.getSolarTerms === 'function') {
+            const list = cd.getSolarTerms(dateStr);
+            if (Array.isArray(list) && list.length > 0 && list[0].name) return list[0].name;
+        }
+        if (typeof cd.getSolarTerm === 'function') {
+            const term = cd.getSolarTerm(dateStr);
+            if (term && term.name) return term.name;
+            if (typeof term === 'string') return term;
+        }
+        if (typeof cd.getSolarTermName === 'function') {
+            const name = cd.getSolarTermName(dateStr);
+            if (name) return name;
+        }
+        if (typeof cd.getDayDetail === 'function') {
+            const detail = cd.getDayDetail(dateStr);
+            if (detail && detail.solarTerm) return detail.solarTerm;
+            if (detail && detail.solarTermName) return detail.solarTermName;
+        }
+    } catch (e) { }
+    return '';
+}
+
+function getTraditionalFestival(dateStr, lunar) {
+    const cd = window.chineseDays;
+    if (cd && typeof cd.getLunarFestivals === 'function') {
+        try {
+            const list = cd.getLunarFestivals(dateStr);
+            if (Array.isArray(list) && list.length > 0) {
+                const names = list.map(x => typeof x === 'string' ? x : (x.name || x.localName || x.festival || '')).filter(Boolean);
+                if (names.length > 0) return names.join('、');
+            }
+        } catch (e) { }
+    }
+
+    if (!lunar) return '';
+    const key = `${lunar.lunarMonCN || lunar.monthStr || ''}${lunar.lunarDayCN || lunar.dayStr || ''}`;
+    const map = {
+        '正月初一': '春节',
+        '正月十五': '元宵',
+        '五月初五': '端午',
+        '七月初七': '七夕',
+        '八月十五': '中秋',
+        '九月初九': '重阳',
+        '腊月初八': '腊八',
+        '腊月廿三': '小年',
+        '腊月三十': '除夕'
+    };
+    return map[key] || '';
+}
+
+function formatCycleDescription(status, worldEra) {
+    if (!status) return '';
+    if (worldEra !== 'ancient') return status.description || '';
+    if (status.phase === 'skipped') return '本月经期未至，气血失衡';
+    if (status.phase === 'menstruation') {
+        const day = (status.dayInCycle ?? 0) + 1;
+        return `经期第${day}日，气血偏虚，宜静养`;
+    }
+    if (status.phase === 'follicular') return '卵泡期，气血渐盛，精神回升';
+    if (status.phase === 'ovulation') return '排卵期，精神充沛，情绪较佳';
+    if (status.phase === 'luteal') {
+        if ((status.description || '').includes('经前期')) {
+            return '经前时节，情绪易起伏，体感稍胀';
+        }
+        return '黄体期，状态平稳';
+    }
+    return status.description || '';
 }
