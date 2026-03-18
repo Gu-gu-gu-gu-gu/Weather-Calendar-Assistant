@@ -76,7 +76,7 @@ export function parseTimeValue(raw) {
 }
 
 export function extractFromMessage(messageText, settings) {
-    const result = { time: null, scene: null, location: null, rawTime: null };
+    const result = { time: null, scene: null, location: null, rawTime: null, eraYear: null };
     let content = messageText;
 
     if (settings.tagWrapper) {
@@ -179,7 +179,45 @@ export function extractFromMessage(messageText, settings) {
         result.location = result.scene;
     }
 
+    const eraInfo = detectEraYearInfo(result.rawTime || content);
+    if (eraInfo) result.eraYear = eraInfo;
+
     return result;
+}
+
+export function detectEraYearInfo(text) {
+    if (!text) return null;
+    const re = /([^\d\s]{1,12})([零一二三四五六七八九十百千元0-9]+)年/;
+    const m = text.match(re);
+    if (!m) return null;
+    const label = m[1].trim();
+    const yearNum = parseChineseNumber(m[2]);
+    if (!label || !yearNum) return null;
+    return { label, yearNum };
+}
+
+function parseChineseNumber(str) {
+    if (!str) return null;
+    if (/^\d+$/.test(str)) return parseInt(str);
+    if (str === '元') return 1;
+    const numMap = { 零:0, 一:1, 二:2, 三:3, 四:4, 五:5, 六:6, 七:7, 八:8, 九:9 };
+    const unitMap = { 十:10, 百:100, 千:1000 };
+    let total = 0;
+    let current = 0;
+    for (const ch of str) {
+        if (numMap.hasOwnProperty(ch)) {
+            current = numMap[ch];
+        } else if (unitMap[ch]) {
+            const unit = unitMap[ch];
+            if (current === 0) current = 1;
+            total += current * unit;
+            current = 0;
+        } else if (ch === '元') {
+            return 1;
+        }
+    }
+    total += current;
+    return total > 0 ? total : null;
 }
 
 function pickCaptureGroup(m) {
