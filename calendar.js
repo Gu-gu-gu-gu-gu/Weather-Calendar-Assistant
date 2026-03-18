@@ -12,10 +12,9 @@ export async function loadChineseDays() {
         await new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/chinese-days';
-            script.onload = () => { chineseDaysLoaded = true; resolve(); };
-            script.onerror = () => { chineseDaysLoadFailed = true; reject(); };
             const timer = setTimeout(() => { chineseDaysLoadFailed = true; reject(new Error('timeout')); }, 10000);
             script.onload = () => { clearTimeout(timer); chineseDaysLoaded = true; resolve(); };
+            script.onerror = () => { chineseDaysLoadFailed = true; reject(); };
             document.head.appendChild(script);
         });
     } catch (e) {
@@ -43,7 +42,17 @@ function canUseChineseDays(year) {
     return chineseDaysLoaded && year >= 2004 && year <= 2026;
 }
 
+function buildLunarText(lunar) {
+    if (!lunar) return '';
+    const mon = lunar.lunarMonCN || lunar.monthStr || '';
+    const day = lunar.lunarDayCN || lunar.dayStr || '';
+    const leap = lunar.isLeap ? '闰' : '';
+    return `${leap}${mon}${day}`;
+}
+
 export async function getHolidayInfo(dateStr, countryCode) {
+    await loadChineseDays();
+
     const d = new Date(dateStr + 'T00:00:00');
     const year = d.getFullYear();
     const dayOfWeek = d.getDay();
@@ -81,18 +90,20 @@ export async function getHolidayInfo(dateStr, countryCode) {
             } else {
                 info.dayType = '周末';
             }
+
             if (typeof cd.getDayDetail === 'function') {
                 const detail = cd.getDayDetail(dateStr);
                 if (detail && detail.name) {
-                    info.holidayLocalName = detail.name;
-                    info.holidayName = detail.name;
+                    const parts = String(detail.name).split(',');
+                    info.holidayName = parts[0] || detail.name;
+                    info.holidayLocalName = parts[1] || parts[0] || detail.name;
                 }
             }
+
             if (typeof cd.getLunarDate === 'function') {
                 const lunar = cd.getLunarDate(dateStr);
-                if (lunar) {
-                    info.lunarDate = lunar.dateStr || `${lunar.monthStr || ''}${lunar.dayStr || ''}`;
-                }
+                const lunarText = buildLunarText(lunar);
+                if (lunarText) info.lunarDate = lunarText;
             }
         } catch (e) {
             console.warn('[WorldEngine] chinese-days 调用出错', e);
