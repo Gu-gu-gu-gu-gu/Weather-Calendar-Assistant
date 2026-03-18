@@ -26,6 +26,8 @@ export const DEFAULT_SETTINGS = {
     stripNSFWProgress: true,
     injectionPosition: 1,
     injectionDepth: 4,
+    worldEra: 'modern',
+    ancientLocationMap: []
 };
 
 export function getSettings() {
@@ -53,6 +55,9 @@ export function getChatState() {
             weatherState: null,
             cycleStates: {},
             lastParsedMessageId: -1,
+            eraYearLabel: '',
+            eraYearBase: null,
+            eraYearBaseGregorian: null
         };
     }
     return context.chatMetadata.worldEngine;
@@ -72,6 +77,9 @@ export function saveSnapshot(messageId) {
         currentLocation: cs.currentLocation,
         weatherState: cs.weatherState ? JSON.parse(JSON.stringify(cs.weatherState)) : null,
         cycleStates: JSON.parse(JSON.stringify(cs.cycleStates)),
+        eraYearLabel: cs.eraYearLabel,
+        eraYearBase: cs.eraYearBase,
+        eraYearBaseGregorian: cs.eraYearBaseGregorian
     };
     saveState();
 }
@@ -85,6 +93,9 @@ export function restoreSnapshot(messageId) {
     cs.currentLocation = snap.currentLocation;
     cs.weatherState = snap.weatherState;
     cs.cycleStates = JSON.parse(JSON.stringify(snap.cycleStates));
+    cs.eraYearLabel = snap.eraYearLabel || '';
+    cs.eraYearBase = snap.eraYearBase ?? null;
+    cs.eraYearBaseGregorian = snap.eraYearBaseGregorian ?? null;
     saveState();
     return true;
 }
