@@ -6,11 +6,15 @@ import { detectGenderInfo, initCycleForCharacter, getCycleStatus } from './cycle
 import { updateInjection, buildInjectionPrompt } from './injector.js';
 
 const SLUG = 'world-engine';
+let panelMounted = false;
 
 jQuery(() => {
     const context = SillyTavern.getContext();
 
     const mountPanel = async () => {
+        if (panelMounted) return;
+        if (!document.getElementById('extensions_settings')) return;
+
         await loadChineseDays();
 
         if (!document.getElementById('we-settings-panel')) {
@@ -39,6 +43,7 @@ jQuery(() => {
 
         await tryInitFromLatest();
         await updateInjection();
+        panelMounted = true;
     };
 
     context.eventSource.on(context.eventTypes.APP_READY, async () => {
@@ -79,6 +84,12 @@ async function onMessageReceived(messageId) {
     if (extracted.location) cs.currentLocation = extracted.location;
     cs.lastParsedMessageId = messageId;
 
+    if (extracted.eraYear) {
+        cs.eraYearLabel = extracted.eraYear.label;
+        cs.eraYearBase = extracted.eraYear.yearNum;
+        cs.eraYearBaseGregorian = extracted.time.year;
+    }
+
     if (settings.weatherEnabled) {
         if (shouldRerollWeather(oldDateStr, newDateStr, cs.weatherState, cs.currentLocation)) {
             cs.weatherState = await getWeatherForDate(newDateStr, cs.currentLocation, settings, cs.weatherState);
@@ -114,6 +125,12 @@ async function onMessageEdited(messageId) {
         if (extracted.scene) cs.currentScene = extracted.scene;
         if (extracted.location) cs.currentLocation = extracted.location;
         cs.lastParsedMessageId = messageId;
+
+        if (extracted.eraYear) {
+            cs.eraYearLabel = extracted.eraYear.label;
+            cs.eraYearBase = extracted.eraYear.yearNum;
+            cs.eraYearBaseGregorian = extracted.time.year;
+        }
 
         if (settings.weatherEnabled && shouldRerollWeather(oldDateStr, extracted.time.dateStr, cs.weatherState, cs.currentLocation)) {
             cs.weatherState = await getWeatherForDate(extracted.time.dateStr, cs.currentLocation, settings, cs.weatherState);
@@ -175,6 +192,12 @@ async function tryInitFromLatest() {
             if (extracted.scene) cs.currentScene = extracted.scene;
             if (extracted.location) cs.currentLocation = extracted.location;
             cs.lastParsedMessageId = i;
+
+            if (extracted.eraYear) {
+                cs.eraYearLabel = extracted.eraYear.label;
+                cs.eraYearBase = extracted.eraYear.yearNum;
+                cs.eraYearBaseGregorian = extracted.time.year;
+            }
 
             if (settings.weatherEnabled) {
                 cs.weatherState = await getWeatherForDate(extracted.time.dateStr, cs.currentLocation, settings, cs.weatherState);
@@ -326,6 +349,13 @@ function buildSettingsHtml() {
                             </select>
                         </div>
                         <div class="we-row">
+                            <label>时代模式</label>
+                            <select id="we-world-era">
+                                <option value="modern">现代</option>
+                                <option value="ancient">古代</option>
+                            </select>
+                        </div>
+                        <div class="we-row">
                             <label>自定义起始时间</label>
                             <input type="text" id="we-start-time" placeholder="留空=从AI消息解析 | 格式：2025-06-18 08:00" />
                         </div>
@@ -420,6 +450,13 @@ function buildSettingsHtml() {
                             <label>默认城市</label>
                             <input type="text" id="we-default-city" placeholder="未解析到地点时使用" />
                         </div>
+                        <div class="we-row">
+                            <label>古地名映射</label>
+                            <input type="text" id="we-ancient-from" placeholder="古地名 如 长安" style="flex:1" />
+                            <input type="text" id="we-ancient-to" placeholder="现代地名 如 西安" style="flex:1" />
+                            <button class="we-btn" id="we-add-ancient-map">+添加</button>
+                        </div>
+                        <div class="we-event-list" id="we-ancient-map-list"></div>
                         <div class="we-row">
                             <label>连续性概率</label>
                             <input type="text" id="we-weather-continuity" placeholder="0-100" />
@@ -520,6 +557,13 @@ function bindSettingsEvents() {
     $('#we-country').on('change', function () {
         getSettings().countryCode = this.value;
         saveState();
+        updateInjection();
+    });
+
+    $('#we-world-era').on('change', function () {
+        getSettings().worldEra = this.value;
+        saveState();
+        refreshStatusDisplay();
         updateInjection();
     });
 
@@ -675,6 +719,37 @@ function bindSettingsEvents() {
         saveState();
     });
 
+    $('#we-add-ancient-map').on('click', function () {
+        const from = $('#we-ancient-from').val().trim();
+        const to = $('#we-ancient-to').val().trim();
+        if (!from || !to) {
+            toastr.warning('古地名和现代地名不能为空', '天气与日历小助手');
+            return;
+        }
+        const settings = getSettings();
+        if (!Array.isArray(settings.ancientLocationMap)) settings.ancientLocationMap = [];
+        const existing = settings.ancientLocationMap.find(x => x.from === from);
+        if (existing) {
+            existing.to = to;
+        } else {
+            settings.ancientLocationMap.push({ from, to });
+        }
+        saveState();
+        renderAncientMapList();
+        $('#we-ancient-from').val('');
+        $('#we-ancient-to').val('');
+        updateInjection();
+    });
+
+    $('#we-settings-panel').on('click', '.we-del-ancient-map', function () {
+        const from = $(this).data('from');
+        const settings = getSettings();
+        settings.ancientLocationMap = (settings.ancientLocationMap || []).filter(x => x.from !== from);
+        saveState();
+        renderAncientMapList();
+        updateInjection();
+    });
+
     $('#we-weather-continuity').on('change', function () {
         const v = parseInt(this.value);
         getSettings().weatherContinuity = isNaN(v) ? 70 : Math.max(0, Math.min(100, v));
@@ -792,6 +867,11 @@ function bindSettingsEvents() {
                 if (extracted.scene) cs.currentScene = extracted.scene;
                 if (extracted.location) cs.currentLocation = extracted.location;
                 cs.lastParsedMessageId = i;
+                if (extracted.eraYear) {
+                    cs.eraYearLabel = extracted.eraYear.label;
+                    cs.eraYearBase = extracted.eraYear.yearNum;
+                    cs.eraYearBaseGregorian = extracted.time.year;
+                }
                 saveSnapshot(i);
                 count++;
             }
@@ -860,6 +940,7 @@ function loadSettingsToUI() {
     const s = getSettings();
     $('#we-enabled').prop('checked', s.enabled);
     $('#we-country').val(s.countryCode);
+    $('#we-world-era').val(s.worldEra || 'modern');
     $('#we-start-time').val(s.customStartTime);
     $('#we-init-latest').prop('checked', s.initFromLatest);
     $('#we-tag-wrapper').val(s.tagWrapper);
@@ -878,6 +959,7 @@ function loadSettingsToUI() {
     $('#we-weather-rain-bias').val(s.weatherRainBias);
     $('#we-cycle-enabled').prop('checked', s.cycleEnabled);
     renderEventList();
+    renderAncientMapList();
     renderGenderOverrideList();
     renderManualList();
     renderCycleList();
@@ -906,6 +988,26 @@ function renderEventList() {
         renderEventList();
         updateInjection();
     });
+}
+
+function renderAncientMapList() {
+    const settings = getSettings();
+    const container = $('#we-ancient-map-list');
+    container.empty();
+
+    const list = Array.isArray(settings.ancientLocationMap) ? settings.ancientLocationMap : [];
+    if (list.length === 0) {
+        container.append('<div class="we-hint">尚未添加古地名映射。</div>');
+        return;
+    }
+
+    for (const item of list) {
+        const line = $(`<div class="we-event-item">
+            <span>🏮 ${item.from} → ${item.to}</span>
+            <button class="we-btn we-btn-danger we-del-ancient-map" data-from="${item.from}" style="margin-left:auto;">✕</button>
+        </div>`);
+        container.append(line);
+    }
 }
 
 function renderGenderOverrideList() {
@@ -1007,6 +1109,7 @@ function refreshStatusDisplay() {
             lines.push(`🌤 天气: ${cs.weatherState.cn} ${cs.weatherState.temp}°C ${src}${cs.weatherState.extreme ? ' ⚠极端' : ''}`);
         }
         lines.push(`🌐 地区: ${settings.countryCode}`);
+        lines.push(`🧭 时代: ${settings.worldEra === 'ancient' ? '古代' : '现代'}`);
         lines.push(`📦 快照数: ${Object.keys(cs.snapshots).length}`);
 
         const cycleCount = Object.keys(cs.cycleStates).length;
