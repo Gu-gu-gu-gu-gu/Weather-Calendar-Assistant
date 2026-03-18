@@ -42,6 +42,11 @@
 
 ---
 
+## 更新日志
+详见 CHANGELOG.md
+
+---
+
 ## 📸 截图展示
 
 ![设置面板](assets/screenshot-1.png)
