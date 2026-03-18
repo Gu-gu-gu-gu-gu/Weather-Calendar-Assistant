@@ -43,7 +43,7 @@
 ---
 
 ## 更新日志
-详见 CHANGELOG.md
+详见 [CHANGELOG.md](https://github.com/Gu-gu-gu-gu-gu/Weather-Calendar-Assistant/blob/9c86ef7c46394d27b570475f224d513419948b42/CHANGELOG.md) 
 
 ---
 
