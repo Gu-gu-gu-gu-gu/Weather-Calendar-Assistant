@@ -57,7 +57,8 @@ export function getChatState() {
             lastParsedMessageId: -1,
             eraYearLabel: '',
             eraYearBase: null,
-            eraYearBaseGregorian: null
+            eraYearBaseGregorian: null,
+            randomBaseYear: null
         };
     }
     return context.chatMetadata.worldEngine;
@@ -79,7 +80,8 @@ export function saveSnapshot(messageId) {
         cycleStates: JSON.parse(JSON.stringify(cs.cycleStates)),
         eraYearLabel: cs.eraYearLabel,
         eraYearBase: cs.eraYearBase,
-        eraYearBaseGregorian: cs.eraYearBaseGregorian
+        eraYearBaseGregorian: cs.eraYearBaseGregorian,
+        randomBaseYear: cs.randomBaseYear
     };
     saveState();
 }
@@ -96,6 +98,7 @@ export function restoreSnapshot(messageId) {
     cs.eraYearLabel = snap.eraYearLabel || '';
     cs.eraYearBase = snap.eraYearBase ?? null;
     cs.eraYearBaseGregorian = snap.eraYearBaseGregorian ?? null;
+    cs.randomBaseYear = snap.randomBaseYear ?? null;
     saveState();
     return true;
 }
