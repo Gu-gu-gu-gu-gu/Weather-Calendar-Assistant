@@ -81,6 +81,25 @@ const WMO_MAP = {
     99: { type: 'thunderstorm', cn: '强雷暴夹冰雹', en: 'Heavy Thunderstorm with Hail', extreme: true },
 };
 
+const ANCIENT_TO_MODERN = {
+    '长安': '西安',
+    '洛阳': '洛阳',
+    '建康': '南京',
+    '临安': '杭州',
+    '燕京': '北京',
+    '大都': '北京',
+    '江宁': '南京',
+    '襄阳': '襄阳',
+    '开封': '开封',
+    '汴梁': '开封',
+    '姑苏': '苏州',
+    '钱塘': '杭州',
+    '金陵': '南京',
+    '成都府': '成都',
+    '幽州': '北京',
+    '渤海': '天津'
+};
+
 function getSeason(month) {
     if ([3, 4, 5].includes(month)) return 'spring';
     if ([6, 7, 8].includes(month)) return 'summer';
@@ -126,8 +145,8 @@ export function shouldRerollWeather(oldDateStr, newDateStr, oldWeather, newLocat
 }
 
 export async function getWeatherForDate(dateStr, locationName, settings, previousWeather) {
-
-    const location = normalizeLocationName(locationName || settings.defaultCity || '');
+    const mapped = mapAncientLocation(locationName || settings.defaultCity || '', settings);
+    const location = normalizeLocationName(mapped);
     if (!location) {
         const month = parseInt(dateStr.slice(5, 7));
         return rollWeather(month);
@@ -306,8 +325,32 @@ function normalizeLocationName(raw) {
     return s;
 }
 
-export function getWeatherPrompt(weather) {
+function mapAncientLocation(raw, settings) {
+    if (!raw) return '';
+    if (!settings || settings.worldEra !== 'ancient') return raw;
+    const base = raw.trim();
+    const list = Array.isArray(settings.ancientLocationMap) ? settings.ancientLocationMap : [];
+    const hit = list.find(x => x.from && x.from.trim() === base);
+    if (hit && hit.to) return hit.to.trim();
+    return ANCIENT_TO_MODERN[base] || base;
+}
+
+export function getWeatherPrompt(weather, worldEra = 'modern') {
     if (!weather) return '';
+    if (worldEra === 'ancient') {
+        const desc = getAncientWeatherText(weather.type);
+        const tempWord = getAncientTempWord(weather.temp);
+        let lines = [];
+        lines.push(`今之气候：${desc}，${tempWord}`);
+        if (weather.extreme) {
+            lines.push(`⚠ 天象凶险，恐有风灾雪祸，当慎行`);
+        } else {
+            const impacts = getAncientImpact(weather.type);
+            if (impacts) lines.push(`提示：${impacts}`);
+        }
+        return lines.join('\n');
+    }
+
     let lines = [];
     lines.push(`当前天气：${weather.cn}（${weather.en}），气温约${weather.temp}°C`);
 
@@ -319,6 +362,73 @@ export function getWeatherPrompt(weather) {
         if (impacts) lines.push(`天气影响：${impacts}`);
     }
     return lines.join('\n');
+}
+
+function getAncientWeatherText(type) {
+    const map = {
+        light_rain: '微雨如丝',
+        moderate_rain: '细雨绵绵',
+        heavy_rain: '大雨倾盆',
+        shower: '骤雨时落',
+        thunderstorm: '雷电交作',
+        foggy: '雾气弥漫',
+        windy: '风势渐紧',
+        windy_cold: '朔风凛冽',
+        humid: '暑热潮闷',
+        sunny_hot: '烈日当空',
+        heatwave: '酷热难当',
+        light_snow: '小雪初降',
+        moderate_snow: '雪花纷飞',
+        heavy_snow: '大雪封途',
+        sleet: '雨雪交加',
+        frost: '霜露凝寒',
+        hail: '冰雹骤落',
+        typhoon: '狂风卷地',
+        blizzard: '风雪暴烈',
+        ice_storm: '冰雨如刀',
+        sunny: '晴朗无云',
+        cloudy: '云开半掩',
+        overcast: '天色阴沉',
+        partly_cloudy: '晴间多云',
+        sunny_cold: '天晴而寒',
+    };
+    return map[type] || '天气平常';
+}
+
+function getAncientTempWord(temp) {
+    if (temp <= 0) return '寒气逼人';
+    if (temp <= 8) return '微寒';
+    if (temp <= 16) return '略凉';
+    if (temp <= 24) return '温润宜人';
+    if (temp <= 30) return '微热';
+    if (temp <= 36) return '暑气渐盛';
+    return '酷热难耐';
+}
+
+function getAncientImpact(type) {
+    const map = {
+        light_rain: '行路宜携伞，衣衫勿湿',
+        moderate_rain: '道路泥泞，舟车稍缓',
+        heavy_rain: '沟渠暴涨，宜避外行',
+        shower: '雨来忽至，宜备蓑笠',
+        thunderstorm: '雷鸣电闪，不可空旷久立',
+        foggy: '雾深路迷，行路须谨慎',
+        windy: '风劲尘起，行路需防坠物',
+        windy_cold: '寒风侵骨，当添衣',
+        humid: '暑湿相蒸，易汗劳',
+        sunny_hot: '烈日曝身，当避炎热',
+        heatwave: '酷暑难耐，少出为宜',
+        light_snow: '薄雪初覆，道路湿滑',
+        moderate_snow: '积雪渐厚，行路不便',
+        heavy_snow: '风雪封途，出行暂停',
+        sleet: '冰滑难行，当缓步',
+        frost: '晨寒地滑，注意防寒',
+        hail: '冰雹伤物，当避檐下',
+        typhoon: '狂风大作，闭户避风',
+        blizzard: '暴雪狂风，不可远行',
+        ice_storm: '冰雨骤急，树枝易折',
+    };
+    return map[type] || '';
 }
 
 function getWeatherImpact(type) {
