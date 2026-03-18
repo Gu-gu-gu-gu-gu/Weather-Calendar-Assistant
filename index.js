@@ -430,9 +430,17 @@ function buildSettingsHtml() {
                                 <option value="anniversary">纪念日</option>
                                 <option value="custom">自定义</option>
                             </select>
-                            <input type="text" id="we-event-char" placeholder="关联角色（可空）" style="flex:1" />
                             <button class="we-btn" id="we-add-event">+添加</button>
                         </div>
+                        <div class="we-row">
+                            <input type="text" id="we-event-char-filter" placeholder="搜索角色..." style="flex:1" />
+                            <button class="we-btn" id="we-event-char-select-all">全选</button>
+                            <button class="we-btn" id="we-event-char-clear">清空</button>
+                        </div>
+                        <div class="we-row">
+                            <select id="we-event-char" multiple class="we-event-char-select"></select>
+                        </div>
+                        <div class="we-hint">可多选角色卡，留空表示所有聊天都注入。</div>
                     </div>
                 </div>
 
@@ -675,7 +683,7 @@ function bindSettingsEvents() {
         const name = $('#we-event-name').val().trim();
         const dateRaw = $('#we-event-date').val().trim();
         const type = $('#we-event-type').val();
-        const character = $('#we-event-char').val().trim();
+        const characterIds = $('#we-event-char').val() || [];
 
         if (!name || !dateRaw) {
             toastr.warning('名称和日期不能为空', '天气与日历小助手');
@@ -697,15 +705,35 @@ function bindSettingsEvents() {
         const settings = getSettings();
         settings.events.push({
             id: Date.now().toString(36),
-            name, date: monthDay, year, type, character,
+            name,
+            date: monthDay,
+            year,
+            type,
+            characterIds: characterIds.map(String)
         });
         saveState();
         renderEventList();
         $('#we-event-name').val('');
         $('#we-event-date').val('');
-        $('#we-event-char').val('');
+        $('#we-event-char').val([]);
         toastr.success('纪念日已添加', '天气与日历小助手');
         updateInjection();
+    });
+
+    $('#we-event-char-filter').on('input', function () {
+        filterEventCharacterOptions(this.value);
+    });
+
+    $('#we-event-char-select-all').on('click', function () {
+        const select = $('#we-event-char');
+        select.find('option').each(function () {
+            if (!this.hidden) this.selected = true;
+        });
+        select.trigger('change');
+    });
+
+    $('#we-event-char-clear').on('click', function () {
+        $('#we-event-char').val([]).trigger('change');
     });
 
     $('#we-weather-enabled').on('change', function () {
@@ -958,6 +986,7 @@ function loadSettingsToUI() {
     $('#we-weather-jitter').val(s.weatherTempJitter);
     $('#we-weather-rain-bias').val(s.weatherRainBias);
     $('#we-cycle-enabled').prop('checked', s.cycleEnabled);
+    renderEventCharacterOptions();
     renderEventList();
     renderAncientMapList();
     renderGenderOverrideList();
@@ -972,10 +1001,18 @@ function renderEventList() {
 
     for (const ev of settings.events) {
         const emoji = ev.type === 'birthday' ? '🎂' : ev.type === 'anniversary' ? '💝' : '📌';
-        const charLabel = ev.character ? `(${ev.character})` : '';
         const yearLabel = ev.year ? `${ev.year}-` : '';
+        let bindLabel = '';
+
+        if (Array.isArray(ev.characterIds) && ev.characterIds.length > 0) {
+            const names = ev.characterIds.map(id => getCharacterNameById(id)).filter(Boolean);
+            if (names.length > 0) bindLabel = `（${names.join('、')}）`;
+        } else if (ev.character) {
+            bindLabel = `（${ev.character}）`;
+        }
+
         const item = $(`<div class="we-event-item">
-            <span>${emoji} ${yearLabel}${ev.date} ${ev.name} ${charLabel}</span>
+            <span>${emoji} ${yearLabel}${ev.date} ${ev.name}${bindLabel}</span>
             <button class="we-btn we-btn-danger we-del-event" data-id="${ev.id}" style="margin-left:auto;">✕</button>
         </div>`);
         container.append(item);
@@ -988,6 +1025,55 @@ function renderEventList() {
         renderEventList();
         updateInjection();
     });
+}
+
+function renderEventCharacterOptions() {
+    const select = $('#we-event-char');
+    const filter = $('#we-event-char-filter');
+    const btnAll = $('#we-event-char-select-all');
+    const btnClear = $('#we-event-char-clear');
+
+    select.empty();
+
+    const context = SillyTavern.getContext();
+    const chars = context.characters || [];
+    if (chars.length === 0) {
+        select.append('<option value="">（无角色卡）</option>');
+        select.prop('disabled', true);
+        filter.prop('disabled', true);
+        btnAll.prop('disabled', true);
+        btnClear.prop('disabled', true);
+        return;
+    }
+
+    select.prop('disabled', false);
+    filter.prop('disabled', false);
+    btnAll.prop('disabled', false);
+    btnClear.prop('disabled', false);
+
+    for (let i = 0; i < chars.length; i++) {
+        const c = chars[i];
+        if (!c) continue;
+        const name = c.name || c?.data?.name || c?.char_name || `角色${i}`;
+        select.append(`<option value="${i}">${name}</option>`);
+    }
+
+    filterEventCharacterOptions(filter.val() || '');
+}
+
+function filterEventCharacterOptions(keyword) {
+    const kw = (keyword || '').trim().toLowerCase();
+    $('#we-event-char').find('option').each(function () {
+        const text = $(this).text().toLowerCase();
+        const show = !kw || text.includes(kw);
+        $(this).prop('hidden', !show);
+    });
+}
+
+function getCharacterNameById(id) {
+    const context = SillyTavern.getContext();
+    const c = context.characters?.[Number(id)];
+    return c?.name || c?.data?.name || c?.char_name || '';
 }
 
 function renderAncientMapList() {
