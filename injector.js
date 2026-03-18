@@ -81,7 +81,9 @@ export async function buildInjectionPrompt() {
 
     if (settings.eventsEnabled && settings.events.length > 0) {
         const matched = checkEvents(dateStr, settings.events);
+        const currentCharId = getCurrentCharacterId();
         for (const ev of matched) {
+            if (!isEventForCurrentChat(ev, currentCharId)) continue;
             const emoji = ev.type === 'birthday' ? '🎂' : '💝';
             let extra = '';
             if (ev.year) {
@@ -96,7 +98,8 @@ export async function buildInjectionPrompt() {
                     }
                 }
             }
-            sections.push(`${emoji} 今天是${ev.character ? ev.character + '的' : ''}${ev.name}${extra}！`);
+            const owner = getEventOwnerName(ev);
+            sections.push(`${emoji} 今天是${owner}${ev.name}${extra}！`);
         }
     }
 
@@ -275,6 +278,43 @@ function getTraditionalFestival(dateStr, lunar) {
         '腊月三十': '除夕'
     };
     return map[key] || '';
+}
+
+function getCurrentCharacterId() {
+    const context = SillyTavern.getContext();
+    return context.characterId ?? null;
+}
+
+function getCurrentCharacterName() {
+    const context = SillyTavern.getContext();
+    const c = context.characters?.[context.characterId];
+    return c?.name || c?.data?.name || c?.char_name || '';
+}
+
+function isEventForCurrentChat(ev, currentCharId) {
+    if (Array.isArray(ev.characterIds) && ev.characterIds.length > 0) {
+        return currentCharId !== null && ev.characterIds.map(String).includes(String(currentCharId));
+    }
+    if (ev.character) {
+        const name = getCurrentCharacterName();
+        return name && name === ev.character;
+    }
+    return true;
+}
+
+function getEventOwnerName(ev) {
+    if (Array.isArray(ev.characterIds) && ev.characterIds.length > 0) {
+        const names = ev.characterIds.map(id => getCharacterNameById(id)).filter(Boolean);
+        if (names.length > 0) return `${names.join('、')}的`;
+    }
+    if (ev.character) return `${ev.character}的`;
+    return '';
+}
+
+function getCharacterNameById(id) {
+    const context = SillyTavern.getContext();
+    const c = context.characters?.[Number(id)];
+    return c?.name || c?.data?.name || c?.char_name || '';
 }
 
 function formatCycleDescription(status, worldEra) {
