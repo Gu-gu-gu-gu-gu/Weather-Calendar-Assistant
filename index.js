@@ -278,7 +278,7 @@ function buildSettingsHtml() {
     <div id="we-settings-panel" class="extension_settings">
         <div class="inline-drawer">
             <div class="inline-drawer-toggle inline-drawer-header">
-                <b>🌤 天气与日历小助手</b>
+                <b>天气与日历小助手</b>
                 <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
             </div>
             <div class="inline-drawer-content">
@@ -352,10 +352,6 @@ function buildSettingsHtml() {
                         <div class="we-row">
                             <label>地点正则(高级)</label>
                             <input type="text" id="we-location-regex" placeholder="留空=使用默认解析" />
-                        </div>
-                        <div class="we-row">
-                            <label>去除NSFW进度</label>
-                            <input type="checkbox" id="we-strip-nsfw" />
                         </div>
                         <div class="we-row">
                             <button class="we-btn" id="we-auto-detect">🔎 从最新AI消息自动检测</button>
@@ -560,10 +556,6 @@ function bindSettingsEvents() {
     });
     $('#we-location-regex').on('change', function () {
         getSettings().locationRegexCustom = this.value.trim();
-        saveState();
-    });
-    $('#we-strip-nsfw').on('change', function () {
-        getSettings().stripNSFWProgress = this.checked;
         saveState();
     });
 
@@ -860,7 +852,6 @@ function loadSettingsToUI() {
     $('#we-time-regex').val(s.timeRegexCustom);
     $('#we-scene-regex').val(s.sceneRegexCustom);
     $('#we-location-regex').val(s.locationRegexCustom);
-    $('#we-strip-nsfw').prop('checked', s.stripNSFWProgress);
     $('#we-calendar-enabled').prop('checked', s.calendarEnabled);
     $('#we-events-enabled').prop('checked', s.eventsEnabled);
     $('#we-weather-enabled').prop('checked', s.weatherEnabled);
