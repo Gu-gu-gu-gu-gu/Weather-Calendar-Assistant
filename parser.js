@@ -89,7 +89,8 @@ export function extractFromMessage(messageText, settings) {
         try {
             const m = content.match(new RegExp(settings.timeRegexCustom));
             if (m) {
-                result.rawTime = m[1] || m[0];
+                const g = pickCaptureGroup(m);
+                result.rawTime = (g || m[0]).trim();
                 result.time = parseTimeValue(result.rawTime);
             }
         } catch (_) { }
@@ -119,7 +120,10 @@ export function extractFromMessage(messageText, settings) {
     if (settings.sceneRegexCustom) {
         try {
             const m = content.match(new RegExp(settings.sceneRegexCustom));
-            if (m) result.scene = (m[1] || m[0]).trim();
+            if (m) {
+                const g = pickCaptureGroup(m);
+                result.scene = (g || m[0]).trim();
+            }
         } catch (_) { }
     }
 
@@ -143,7 +147,10 @@ export function extractFromMessage(messageText, settings) {
     if (settings.locationRegexCustom) {
         try {
             const m = content.match(new RegExp(settings.locationRegexCustom));
-            if (m) result.location = (m[1] || m[0]).trim();
+            if (m) {
+                const g = pickCaptureGroup(m);
+                result.location = (g || m[0]).trim();
+            }
         } catch (_) { }
     }
 
@@ -168,7 +175,21 @@ export function extractFromMessage(messageText, settings) {
         result.scene = sanitizeScene(result.scene);
     }
 
+    if (!result.location && result.scene) {
+        result.location = result.scene;
+    }
+
     return result;
+}
+
+function pickCaptureGroup(m) {
+    if (!m || m.length <= 1) return m && m[1] ? m[1] : null;
+    for (let i = m.length - 1; i >= 1; i--) {
+        if (m[i] !== undefined && m[i] !== null && String(m[i]).trim() !== '') {
+            return m[i];
+        }
+    }
+    return m[1] || null;
 }
 
 function sanitizeScene(scene) {
