@@ -125,3 +125,8 @@
     color: var(--SmartThemeQuoteColor, #999);
     margin-top: 2px;
 }
+
+#we-settings-panel .we-event-char-select {
+    height: 28px;
+    min-height: 28px;
+}
