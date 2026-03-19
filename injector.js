@@ -120,7 +120,7 @@ export async function buildInjectionPrompt() {
     }
 
     if (settings.worldTagMode && settings.worldTagPromptEnabled) {
-        sections.push('每轮回复末尾必须追加一行（不要省略、不要改写格式）：\n[[WORLD]] location=城市 | time=时间[[/WORLD]]\n\n要求：\n- location 必须包含“城市”（如：上海 / Tokyo / Paris）\n- 严格使用 key=value 格式，字段之间用 " | " 分隔\n- 该行必须单独一行，不能与正文混在一起');
+        sections.push('每轮回复末尾必须追加一行（不要省略、不要改写格式）：\n[[WORLD]] location=城市 | time=时间[[/WORLD]]\n\n要求：\n- location 必须包含“城市”（如：上海 / Tokyo / Paris）\n- 严格使用 key=value 格式，字段之间用 " | " 分隔\n- 该行必须单独一行，不能与正文混在一起\n- time 必须使用YYYY年MM月DD日 HH:mm或年号x年x月xx x时x刻的格式');
     }
     sections.push('[/World Engine]');
     return sections.join('\n');
