@@ -1,5 +1,7 @@
 # 🌤 天气与日历小助手（Weather-Calendar-Assistant）
 
+[English](README.en.md)
+
 一个面向 [SillyTavern](https://github.com/SillyTavern/SillyTavern) 的前端扩展插件，用于在角色扮演中自动追踪世界时间、节假日、天气与角色生理周期，并将“世界状态”注入提示词，帮助模型维持时间一致性与剧情连贯性。
 
 ---
@@ -65,11 +67,6 @@
 - 自动识别女性角色并生成周期
 - 可手动填写角色年龄
 - 年龄 < 12 或 ≥55 将自动禁用经期模拟
-
-### ✅ API 测试
-操作面板提供：
-- 测试 Open‑Meteo（天气）
-- 测试节假日 API（chinese-days / Nager.Date）
 
 ---
 
