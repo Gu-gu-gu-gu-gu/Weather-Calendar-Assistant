@@ -106,7 +106,9 @@ export function extractFromMessage(messageText, settings) {
         baseDateStr = `${y}-01-01`;
     }
 
-    if (settings.timeRegexCustom) {
+    const hasCustomTimeRegex = !!settings.timeRegexCustom;
+
+    if (hasCustomTimeRegex) {
         try {
             const m = content.match(new RegExp(settings.timeRegexCustom));
             if (m) {
@@ -117,7 +119,7 @@ export function extractFromMessage(messageText, settings) {
         } catch (_) { }
     }
 
-    if (!result.time && settings.timeKey) {
+    if (!hasCustomTimeRegex && !result.time && settings.timeKey) {
         const re = new RegExp(escapeRegex(settings.timeKey) + '\\s*[:：]\\s*(.+)', 'im');
         const m = content.match(re);
         if (m) {
@@ -126,7 +128,7 @@ export function extractFromMessage(messageText, settings) {
         }
     }
 
-    if (!result.time) {
+    if (!hasCustomTimeRegex && !result.time) {
         for (const k of TIME_KEYS_DEFAULT) {
             const re = new RegExp(escapeRegex(k) + '\\s*[:：]\\s*(.+)', 'im');
             const m = content.match(re);
