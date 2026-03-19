@@ -124,17 +124,21 @@ export function extractFromMessage(messageText, settings) {
         baseDateStr = `${y}-01-01`;
     }
 
-    if (settings.worldTagMode) {
-        const tag = parseWorldTagBlock(content);
-        if (tag) {
-            if (tag.time) {
-                result.rawTime = tag.time.trim();
-                result.time = parseTimeValue(result.rawTime, baseDateStr);
-            }
-            if (tag.location) result.location = tag.location.trim();
-            const eraInfo = detectEraYearInfo(result.rawTime || content);
-            if (eraInfo) result.eraYear = eraInfo;
+    const worldTag = parseWorldTagBlock(content);
+    if (worldTag) {
+        if (worldTag.time) {
+            result.rawTime = worldTag.time.trim();
+            result.time = parseTimeValue(result.rawTime, baseDateStr);
         }
+        if (worldTag.location) result.location = worldTag.location.trim();
+        const eraInfo = detectEraYearInfo(result.rawTime || content);
+        if (eraInfo) result.eraYear = eraInfo;
+    }
+
+    if (settings.worldTagMode) {
+        return result;
+    }
+    if (result.time || result.location) {
         return result;
     }
 
@@ -152,7 +156,7 @@ export function extractFromMessage(messageText, settings) {
     }
 
     if (!hasCustomTimeRegex && !result.time && settings.timeKey) {
-        const re = new RegExp(escapeRegex(settings.timeKey) + '\\s*[:：]\\s*(.+)', 'im');
+        const re = new RegExp(escapeRegex(settings.timeKey) + '\\s*[:=：]\\s*(.+)', 'im');
         const m = content.match(re);
         if (m) {
             result.rawTime = m[1].trim();
@@ -162,7 +166,7 @@ export function extractFromMessage(messageText, settings) {
 
     if (!hasCustomTimeRegex && !result.time) {
         for (const k of TIME_KEYS_DEFAULT) {
-            const re = new RegExp(escapeRegex(k) + '\\s*[:：]\\s*(.+)', 'im');
+            const re = new RegExp(escapeRegex(k) + '\\s*[:=：]\\s*(.+)', 'im');
             const m = content.match(re);
             if (m) {
                 result.rawTime = m[1].trim();
@@ -183,14 +187,14 @@ export function extractFromMessage(messageText, settings) {
     }
 
     if (!result.location && settings.locationKey) {
-        const re = new RegExp(escapeRegex(settings.locationKey) + '\\s*[:：]\\s*(.+)', 'im');
+        const re = new RegExp(escapeRegex(settings.locationKey) + '\\s*[:=：]\\s*(.+)', 'im');
         const m = content.match(re);
         if (m) result.location = m[1].trim();
     }
 
     if (!result.location) {
         for (const k of LOCATION_KEYS_DEFAULT) {
-            const re = new RegExp(escapeRegex(k) + '\\s*[:：]\\s*(.+)', 'im');
+            const re = new RegExp(escapeRegex(k) + '\\s*[:=：]\\s*(.+)', 'im');
             const m = content.match(re);
             if (m) {
                 result.location = m[1].trim();
@@ -255,7 +259,7 @@ function parseLunarTimeValue(text, baseDateStr) {
 
 function parseLunarMonthDay(text) {
     const m = text.match(/(闰)?(正|一|二|三|四|五|六|七|八|九|十|冬|腊)月/);
-    const d = text.match(/(初一|初二|初三|初四|初五|初六|初七|初八|初九|初十|十一|十二|十三|十四|十五|十六|十七|十八|十九|二十|廿一|廿二|廿三|廿四|廿五|廿六|廿七|廿八|廿九|三十)/);
+    const d = text.match(/(初一|初二|初三|初四|初五|初六|初七|初八|初九|初十|十一|十二|十三|十四|十五|十六|十七|十八|十九|二十|廿一|廿二|廿三|廿四|廿五|廿六|廿七|廿八|廿九|三十)(日|号)?/);
     if (!m || !d) return null;
 
     const monthMap = { 正:1, 一:1, 二:2, 三:3, 四:4, 五:5, 六:6, 七:7, 八:8, 九:9, 十:10, 冬:11, 腊:12 };
