@@ -1,7 +1,6 @@
 import { getChatState } from './state.js';
 
 const TIME_KEYS_DEFAULT = ['time', 'date', '时间', '日期', 'datetime'];
-const SCENE_KEYS_DEFAULT = ['scene', 'location', '场景', '地点', '地区', 'place'];
 const LOCATION_KEYS_DEFAULT = ['location', '地点', '地区', 'place', '城市', 'city'];
 
 export function autoDetectFormat(messageText) {
@@ -9,7 +8,6 @@ export function autoDetectFormat(messageText) {
         tagWrapper: null,
         fields: [],
         timeKey: null,
-        sceneKey: null,
         locationKey: null,
     };
 
@@ -29,9 +27,6 @@ export function autoDetectFormat(messageText) {
         result.fields.push({ key: m[1], value: m[2].trim() });
         if (!result.timeKey && TIME_KEYS_DEFAULT.includes(keyLower)) {
             result.timeKey = m[1];
-        }
-        if (!result.sceneKey && SCENE_KEYS_DEFAULT.includes(keyLower)) {
-            result.sceneKey = m[1];
         }
         if (!result.locationKey && LOCATION_KEYS_DEFAULT.includes(keyLower)) {
             result.locationKey = m[1];
@@ -82,8 +77,31 @@ export function parseTimeValue(raw, baseDateStr = null) {
     return null;
 }
 
+function parseWorldTagBlock(text) {
+    if (!text) return null;
+    let m = text.match(/\[\[WORLD\]\]([\s\S]*?)(\[\[\/WORLD\]\]|$)/i);
+    if (!m) {
+        m = text.match(/<WORLD>([\s\S]*?)(<\/WORLD>|$)/i);
+    }
+    if (!m) return null;
+
+    const inner = m[1];
+    const data = { time: '', location: '' };
+    const re = /([a-zA-Z\u4e00-\u9fff_]+)\s*[:=]\s*([^\n\|｜;；]+)(?=[\n\|｜;；]|$)/g;
+    let match;
+    while ((match = re.exec(inner)) !== null) {
+        const key = String(match[1]).trim().toLowerCase();
+        const val = String(match[2]).trim();
+        if (!val) continue;
+        if (['time', 'date', 'datetime', '时间', '日期'].includes(key)) data.time = val;
+        if (['location', 'place', 'city', '地点', '地区'].includes(key)) data.location = val;
+    }
+    if (!data.time && !data.location) return null;
+    return data;
+}
+
 export function extractFromMessage(messageText, settings) {
-    const result = { time: null, scene: null, location: null, rawTime: null, eraYear: null };
+    const result = { time: null, location: null, rawTime: null, eraYear: null };
     let content = messageText;
 
     if (settings.tagWrapper) {
@@ -104,6 +122,20 @@ export function extractFromMessage(messageText, settings) {
     if (!baseDateStr && settings.worldEra === 'ancient') {
         const y = getOrCreateRandomBaseYear();
         baseDateStr = `${y}-01-01`;
+    }
+
+    if (settings.worldTagMode) {
+        const tag = parseWorldTagBlock(content);
+        if (tag) {
+            if (tag.time) {
+                result.rawTime = tag.time.trim();
+                result.time = parseTimeValue(result.rawTime, baseDateStr);
+            }
+            if (tag.location) result.location = tag.location.trim();
+            const eraInfo = detectEraYearInfo(result.rawTime || content);
+            if (eraInfo) result.eraYear = eraInfo;
+        }
+        return result;
     }
 
     const hasCustomTimeRegex = !!settings.timeRegexCustom;
@@ -140,33 +172,6 @@ export function extractFromMessage(messageText, settings) {
         }
     }
 
-    if (settings.sceneRegexCustom) {
-        try {
-            const m = content.match(new RegExp(settings.sceneRegexCustom));
-            if (m) {
-                const g = pickCaptureGroup(m);
-                result.scene = (g || m[0]).trim();
-            }
-        } catch (_) { }
-    }
-
-    if (!result.scene && settings.sceneKey) {
-        const re = new RegExp(escapeRegex(settings.sceneKey) + '\\s*[:：]\\s*(.+)', 'im');
-        const m = content.match(re);
-        if (m) result.scene = m[1].trim();
-    }
-
-    if (!result.scene) {
-        for (const k of SCENE_KEYS_DEFAULT) {
-            const re = new RegExp(escapeRegex(k) + '\\s*[:：]\\s*(.+)', 'im');
-            const m = content.match(re);
-            if (m) {
-                result.scene = m[1].trim();
-                break;
-            }
-        }
-    }
-
     if (settings.locationRegexCustom) {
         try {
             const m = content.match(new RegExp(settings.locationRegexCustom));
@@ -192,14 +197,6 @@ export function extractFromMessage(messageText, settings) {
                 break;
             }
         }
-    }
-
-    if (settings.stripNSFWProgress && result.scene) {
-        result.scene = sanitizeScene(result.scene);
-    }
-
-    if (!result.location && result.scene) {
-        result.location = result.scene;
     }
 
     const eraInfo = detectEraYearInfo(result.rawTime || content);
@@ -335,14 +332,6 @@ function pickCaptureGroup(m) {
         }
     }
     return m[1] || null;
-}
-
-function sanitizeScene(scene) {
-    let s = scene;
-    s = s.replace(/(?:性爱进度|NSFW进度)\s*[:：]?\s*\d+\/10/gi, '');
-    s = s.replace(/\b\d+\/10\b/g, '');
-    s = s.replace(/\s{2,}/g, ' ').trim();
-    return s;
 }
 
 function escapeRegex(str) {
