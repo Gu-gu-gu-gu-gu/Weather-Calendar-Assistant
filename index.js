@@ -389,6 +389,13 @@ function buildSettingsHtml() {
                             <input type="text" id="we-location-key" placeholder="如：location" />
                         </div>
                         <div class="we-row">
+                            <label>正则预设</label>
+                            <select id="we-regex-preset" style="width:160px;"></select>
+                            <input type="text" id="we-regex-preset-name" placeholder="预设名（可空）" style="flex:1" />
+                            <button class="we-btn" id="we-regex-preset-save">保存当前</button>
+                            <button class="we-btn we-btn-danger" id="we-regex-preset-delete">删除当前</button>
+                        </div>
+                        <div class="we-row">
                             <label>时间正则(高级)</label>
                             <input type="text" id="we-time-regex" placeholder="留空=使用默认解析" />
                         </div>
@@ -626,6 +633,67 @@ function bindSettingsEvents() {
     $('#we-location-regex').on('change', function () {
         getSettings().locationRegexCustom = this.value.trim();
         saveState();
+    });
+    $('#we-regex-preset').on('change', function () {
+        const id = this.value;
+        const preset = getRegexPresetById(id);
+        if (!preset) return;
+        applyRegexPreset(preset);
+        const settings = getSettings();
+        settings.regexPresetLastId = id;
+        saveState();
+        updateInjection();
+    });
+
+    $('#we-regex-preset-save').on('click', function () {
+        const settings = getSettings();
+        const presets = Array.isArray(settings.regexPresets) ? settings.regexPresets : [];
+        const nameInput = $('#we-regex-preset-name').val().trim();
+        const timeRegex = $('#we-time-regex').val().trim();
+        const sceneRegex = $('#we-scene-regex').val().trim();
+        const locationRegex = $('#we-location-regex').val().trim();
+
+        let preset = null;
+        if (nameInput) {
+            preset = presets.find(p => p.name === nameInput);
+        }
+        if (!preset) {
+            const currentId = $('#we-regex-preset').val();
+            preset = presets.find(p => p.id === currentId) || null;
+        }
+
+        if (!preset) {
+            preset = { id: Date.now().toString(36), name: nameInput || `预设${presets.length + 1}` };
+            presets.push(preset);
+        }
+
+        preset.name = nameInput || preset.name || `预设${presets.length}`;
+        preset.timeRegex = timeRegex;
+        preset.sceneRegex = sceneRegex;
+        preset.locationRegex = locationRegex;
+
+        settings.regexPresets = presets;
+        settings.regexPresetLastId = preset.id;
+        saveState();
+        renderRegexPresetOptions();
+        $('#we-regex-preset').val(preset.id);
+        $('#we-regex-preset-name').val('');
+        toastr.success('正则预设已保存', '天气与日历小助手');
+    });
+    $('#we-regex-preset-delete').on('click', function () {
+        const settings = getSettings();
+        const id = $('#we-regex-preset').val();
+        if (!id) {
+            toastr.warning('没有可删除的预设', '天气与日历小助手');
+            return;
+        }
+
+        settings.regexPresets = (settings.regexPresets || []).filter(p => String(p.id) !== String(id));
+        if (settings.regexPresetLastId === id) settings.regexPresetLastId = '';
+        saveState();
+        renderRegexPresetOptions();
+        $('#we-regex-preset-name').val('');
+        toastr.success('已删除预设', '天气与日历小助手');
     });
 
     $('#we-auto-detect').on('click', function () {
@@ -978,6 +1046,7 @@ function loadSettingsToUI() {
     $('#we-time-regex').val(s.timeRegexCustom);
     $('#we-scene-regex').val(s.sceneRegexCustom);
     $('#we-location-regex').val(s.locationRegexCustom);
+    renderRegexPresetOptions();
     $('#we-calendar-enabled').prop('checked', s.calendarEnabled);
     $('#we-events-enabled').prop('checked', s.eventsEnabled);
     $('#we-weather-enabled').prop('checked', s.weatherEnabled);
@@ -1025,6 +1094,54 @@ function renderEventList() {
         renderEventList();
         updateInjection();
     });
+}
+
+function renderRegexPresetOptions() {
+    const settings = getSettings();
+    const select = $('#we-regex-preset');
+    const delBtn = $('#we-regex-preset-delete');
+    select.empty();
+
+    const presets = Array.isArray(settings.regexPresets) ? settings.regexPresets : [];
+    if (presets.length === 0) {
+        select.append('<option value="">（无预设）</option>');
+        select.prop('disabled', true);
+        delBtn.prop('disabled', true);
+        settings.regexPresetLastId = '';
+        saveState();
+        return;
+    }
+
+    select.prop('disabled', false);
+    delBtn.prop('disabled', false);
+
+    for (const p of presets) {
+        select.append(`<option value="${p.id}">${p.name || p.id}</option>`);
+    }
+
+    if (settings.regexPresetLastId) {
+        select.val(settings.regexPresetLastId);
+    }
+}
+
+function getRegexPresetById(id) {
+    const settings = getSettings();
+    const presets = Array.isArray(settings.regexPresets) ? settings.regexPresets : [];
+    return presets.find(p => String(p.id) === String(id)) || null;
+}
+
+function applyRegexPreset(preset) {
+    const settings = getSettings();
+    const t = preset.timeRegex || '';
+    const s = preset.sceneRegex || '';
+    const l = preset.locationRegex || '';
+    settings.timeRegexCustom = t;
+    settings.sceneRegexCustom = s;
+    settings.locationRegexCustom = l;
+    $('#we-time-regex').val(t);
+    $('#we-scene-regex').val(s);
+    $('#we-location-regex').val(l);
+    saveState();
 }
 
 function renderEventCharacterOptions() {
