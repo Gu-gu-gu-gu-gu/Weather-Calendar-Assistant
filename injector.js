@@ -41,16 +41,9 @@ export async function buildInjectionPrompt() {
         sections.push(`日期：${parsed.getFullYear()}年${parsed.getMonth() + 1}月${parsed.getDate()}日 ${timeStr}（${timePeriod}）`);
     }
 
-    if (cs.currentScene) {
-        sections.push(`场景：${cs.currentScene}`);
-    }
-
     if (settings.calendarEnabled) {
         if (settings.worldEra === 'ancient') {
             const lunarInfo = getLunarInfo(dateStr);
-            if (lunarInfo.lunarDate) {
-                sections.push(`农历：${lunarInfo.lunarDate}`);
-            }
             const solarTerm = getSolarTermName(dateStr);
             if (solarTerm) {
                 sections.push(`节气：${solarTerm}`);
@@ -126,6 +119,9 @@ export async function buildInjectionPrompt() {
         }
     }
 
+    if (settings.worldTagMode && settings.worldTagPromptEnabled) {
+        sections.push('每轮回复末尾必须追加一行（不要省略、不要改写格式）：\n[[WORLD]] location=城市 | time=时间[[/WORLD]]\n\n要求：\n- location 必须包含“城市”（如：上海 / Tokyo / Paris）\n- 严格使用 key=value 格式，字段之间用 " | " 分隔\n- 该行必须单独一行，不能与正文混在一起');
+    }
     sections.push('[/World Engine]');
     return sections.join('\n');
 }
