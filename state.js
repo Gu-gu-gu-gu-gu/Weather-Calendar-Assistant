@@ -27,7 +27,9 @@ export const DEFAULT_SETTINGS = {
     injectionPosition: 1,
     injectionDepth: 4,
     worldEra: 'modern',
-    ancientLocationMap: []
+    ancientLocationMap: [],
+    regexPresets: [],
+    regexPresetLastId: ''
 };
 
 export function getSettings() {
