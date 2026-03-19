@@ -93,10 +93,14 @@ export async function getHolidayInfo(dateStr, countryCode) {
 
             if (typeof cd.getDayDetail === 'function') {
                 const detail = cd.getDayDetail(dateStr);
-                if (detail && detail.name) {
+                if (detail && detail.name && info.isHoliday) {
                     const parts = String(detail.name).split(',');
-                    info.holidayName = parts[0] || detail.name;
-                    info.holidayLocalName = parts[1] || parts[0] || detail.name;
+                    const n1 = parts[0] || detail.name;
+                    const n2 = parts[1] || parts[0] || detail.name;
+                    if (!isWeekdayName(n1) && !isWeekdayName(n2)) {
+                        info.holidayName = n1;
+                        info.holidayLocalName = n2;
+                    }
                 }
             }
 
@@ -132,7 +136,7 @@ export async function getNextHoliday(dateStr, countryCode, maxDays = 60) {
         next.setDate(next.getDate() + i);
         const ds = formatDate(next);
         const info = await getHolidayInfo(ds, countryCode);
-        if (info.isHoliday && info.holidayName) {
+        if (info.isHoliday && info.holidayName && !isWeekdayName(info.holidayName)) {
             return { dateStr: ds, name: info.holidayName, localName: info.holidayLocalName, daysUntil: i };
         }
     }
@@ -155,4 +159,15 @@ function formatDate(d) {
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${dd}`;
+}
+
+function isWeekdayName(text) {
+    if (!text) return false;
+    const s = String(text).toLowerCase();
+    if (s.includes('monday') || s.includes('tuesday') || s.includes('wednesday') || s.includes('thursday') || s.includes('friday') || s.includes('saturday') || s.includes('sunday')) {
+        return true;
+    }
+    if (/周[一二三四五六日天]/.test(text)) return true;
+    if (/星期[一二三四五六日天]/.test(text)) return true;
+    return false;
 }
