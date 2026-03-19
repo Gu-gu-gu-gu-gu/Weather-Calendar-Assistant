@@ -29,10 +29,26 @@ export function detectGender(descriptionText) {
     return detectGenderInfo(descriptionText).gender;
 }
 
-export function initCycleForCharacter(characterName, worldDateStr) {
+export function initCycleForCharacter(characterName, worldDateStr, age = null) {
     const baseDate = new Date(worldDateStr + 'T00:00:00');
-    const cycleLength = 28 + Math.floor(Math.random() * 7) - 3;
-    const periodDuration = 3 + Math.floor(Math.random() * 5);
+
+    let cycleLength = 28 + Math.floor(Math.random() * 7) - 3;
+    let periodDuration = 3 + Math.floor(Math.random() * 5);
+
+    if (typeof age === 'number') {
+        if (age < 12 || age >= 55) return null;
+        if (age <= 17) {
+            cycleLength = 30 + Math.floor(Math.random() * 7);
+            periodDuration = 3 + Math.floor(Math.random() * 4);
+        } else if (age >= 40) {
+            cycleLength = 24 + Math.floor(Math.random() * 11);
+            periodDuration = 4 + Math.floor(Math.random() * 4);
+        } else {
+            cycleLength = 26 + Math.floor(Math.random() * 7);
+            periodDuration = 3 + Math.floor(Math.random() * 4);
+        }
+    }
+
     const offset = Math.floor(Math.random() * cycleLength);
     const lastStart = new Date(baseDate);
     lastStart.setDate(lastStart.getDate() - offset);
@@ -45,6 +61,7 @@ export function initCycleForCharacter(characterName, worldDateStr) {
         lastPeriodStart: lastStartStr,
         skipNext: false,
         delayDays: 0,
+        age: typeof age === 'number' ? age : null,
     };
 }
 
@@ -121,10 +138,27 @@ export function advanceCycle(cycleData, currentDateStr) {
         cycleData.delayDays = 0;
         cycleData.skipNext = false;
 
+        let skipChance = 0.03;
+        let delayChance = 0.18;
+        const age = cycleData.age;
+
+        if (typeof age === 'number') {
+            if (age >= 45) {
+                skipChance = 0.12;
+                delayChance = 0.35;
+            } else if (age >= 40) {
+                skipChance = 0.06;
+                delayChance = 0.25;
+            } else if (age <= 17) {
+                skipChance = 0.04;
+                delayChance = 0.25;
+            }
+        }
+
         const rand = Math.random();
-        if (rand < 0.03) {
+        if (rand < skipChance) {
             cycleData.skipNext = true;
-        } else if (rand < 0.18) {
+        } else if (rand < skipChance + delayChance) {
             cycleData.delayDays = Math.floor(Math.random() * 7) - 3;
         }
     }
