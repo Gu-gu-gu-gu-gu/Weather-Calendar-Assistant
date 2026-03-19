@@ -1,6 +1,6 @@
 import { EXTENSION_NAME, getSettings, getChatState, saveState, saveSnapshot, restoreSnapshot, findPreviousSnapshotId, clearSnapshotsAfter } from './state.js';
 import { autoDetectFormat, extractFromMessage, parseTimeValue } from './parser.js';
-import { loadChineseDays } from './calendar.js';
+import { loadChineseDays, getHolidayInfo } from './calendar.js';
 import { rollWeather, shouldRerollWeather, getWeatherForDate } from './weather.js';
 import { detectGenderInfo, initCycleForCharacter, getCycleStatus } from './cycle.js';
 import { updateInjection, buildInjectionPrompt } from './injector.js';
@@ -80,7 +80,6 @@ async function onMessageReceived(messageId) {
     const newDateStr = extracted.time.dateStr;
 
     cs.currentTime = extracted.time.iso;
-    if (extracted.scene) cs.currentScene = extracted.scene;
     if (extracted.location) cs.currentLocation = extracted.location;
     cs.lastParsedMessageId = messageId;
 
@@ -122,7 +121,6 @@ async function onMessageEdited(messageId) {
     if (extracted.time) {
         const oldDateStr = cs.currentTime ? cs.currentTime.split('T')[0] : null;
         cs.currentTime = extracted.time.iso;
-        if (extracted.scene) cs.currentScene = extracted.scene;
         if (extracted.location) cs.currentLocation = extracted.location;
         cs.lastParsedMessageId = messageId;
 
@@ -189,7 +187,6 @@ async function tryInitFromLatest() {
         const extracted = extractFromMessage(msg.mes, settings);
         if (extracted.time) {
             cs.currentTime = extracted.time.iso;
-            if (extracted.scene) cs.currentScene = extracted.scene;
             if (extracted.location) cs.currentLocation = extracted.location;
             cs.lastParsedMessageId = i;
 
@@ -229,10 +226,20 @@ function updateCycleStates(dateStr) {
         const override = settings.genderOverrides?.[name];
         const autoInfo = detectGenderInfo(text);
         const gender = override && override !== 'auto' ? override : autoInfo.gender;
+        const age = normalizeAgeValue(settings.ageOverrides?.[name]);
 
-        if (gender === 'female' && !cs.cycleStates[name]) {
-            cs.cycleStates[name] = initCycleForCharacter(name, dateStr);
-        } else if (gender !== 'female' && cs.cycleStates[name]) {
+        if (gender === 'female') {
+            if (age !== null && (age < 12 || age >= 55)) {
+                delete cs.cycleStates[name];
+                continue;
+            }
+            if (!cs.cycleStates[name]) {
+                const init = initCycleForCharacter(name, dateStr, age);
+                if (init) cs.cycleStates[name] = init;
+            } else if (age !== null) {
+                cs.cycleStates[name].age = age;
+            }
+        } else if (cs.cycleStates[name]) {
             delete cs.cycleStates[name];
         }
     }
@@ -241,14 +248,32 @@ function updateCycleStates(dateStr) {
         for (const item of settings.manualCharacters) {
             const name = item.name?.trim();
             const gender = item.gender;
+            const age = normalizeAgeValue(item.age);
             if (!name) continue;
-            if (gender === 'female' && !cs.cycleStates[name]) {
-                cs.cycleStates[name] = initCycleForCharacter(name, dateStr);
-            } else if (gender !== 'female' && cs.cycleStates[name]) {
+
+            if (gender === 'female') {
+                if (age !== null && (age < 12 || age >= 55)) {
+                    delete cs.cycleStates[name];
+                    continue;
+                }
+                if (!cs.cycleStates[name]) {
+                    const init = initCycleForCharacter(name, dateStr, age);
+                    if (init) cs.cycleStates[name] = init;
+                } else if (age !== null) {
+                    cs.cycleStates[name].age = age;
+                }
+            } else if (cs.cycleStates[name]) {
                 delete cs.cycleStates[name];
             }
         }
     }
+}
+
+function normalizeAgeValue(v) {
+    if (v === null || v === undefined || v === '') return null;
+    const n = parseInt(v);
+    if (isNaN(n) || n <= 0) return null;
+    return n;
 }
 
 function getCharacterDescription() {
@@ -324,11 +349,11 @@ function buildSettingsHtml() {
             <div class="inline-drawer-content">
 
                 <div class="we-section">
-                    <div class="we-section-header" data-section="general">
+                    <div class="we-section-header collapsed" data-section="general">
                         <span>⚙ 总控</span>
                         <span class="we-toggle-icon">▼</span>
                     </div>
-                    <div class="we-section-body" data-section="general">
+                    <div class="we-section-body hidden" data-section="general">
                         <div class="we-row">
                             <label>启用插件</label>
                             <input type="checkbox" id="we-enabled" />
@@ -367,11 +392,21 @@ function buildSettingsHtml() {
                 </div>
 
                 <div class="we-section">
-                    <div class="we-section-header" data-section="parser">
+                    <div class="we-section-header collapsed" data-section="parser">
                         <span>🔍 解析设置</span>
                         <span class="we-toggle-icon">▼</span>
                     </div>
-                    <div class="we-section-body" data-section="parser">
+                    <div class="we-section-body hidden" data-section="parser">
+                        <div class="we-row">
+                            <label>强制WORLD格式</label>
+                            <input type="checkbox" id="we-worldtag-mode" />
+                        </div>
+                        <div class="we-hint">启用后仅解析 [[WORLD]]...[[/WORLD]]，并禁用正则/字段解析。</div>
+                        <div class="we-row">
+                            <label>注入WORLD提示词</label>
+                            <input type="checkbox" id="we-worldtag-prompt" />
+                        </div>
+                        <div class="we-hint">关闭后插件不会注入[[WORLD]]格式要求（适合已在世界书/预设内固定格式）。</div>
                         <div class="we-row">
                             <label>XML标签名</label>
                             <input type="text" id="we-tag-wrapper" placeholder="如：horae（留空=自动检测）" />
@@ -379,10 +414,6 @@ function buildSettingsHtml() {
                         <div class="we-row">
                             <label>时间字段Key</label>
                             <input type="text" id="we-time-key" placeholder="如：time" />
-                        </div>
-                        <div class="we-row">
-                            <label>场景字段Key</label>
-                            <input type="text" id="we-scene-key" placeholder="如：scene" />
                         </div>
                         <div class="we-row">
                             <label>地点字段Key</label>
@@ -400,26 +431,22 @@ function buildSettingsHtml() {
                             <input type="text" id="we-time-regex" placeholder="留空=使用默认解析" />
                         </div>
                         <div class="we-row">
-                            <label>场景正则(高级)</label>
-                            <input type="text" id="we-scene-regex" placeholder="留空=使用默认解析" />
-                        </div>
-                        <div class="we-row">
                             <label>地点正则(高级)</label>
                             <input type="text" id="we-location-regex" placeholder="留空=使用默认解析" />
                         </div>
                         <div class="we-row">
                             <button class="we-btn" id="we-auto-detect">🔎 从最新AI消息自动检测</button>
                         </div>
-                        <div class="we-hint">自动检测会扫描最新一条AI消息，提取标签名和字段Key并填入上方。</div>
+                        <div class="we-hint">自动检测会扫描最新一条AI消息，提取标签名、时间Key、地点Key。</div>
                     </div>
                 </div>
 
                 <div class="we-section">
-                    <div class="we-section-header" data-section="calendar">
+                    <div class="we-section-header collapsed" data-section="calendar">
                         <span>📅 日历与纪念日</span>
                         <span class="we-toggle-icon">▼</span>
                     </div>
-                    <div class="we-section-body" data-section="calendar">
+                    <div class="we-section-body hidden" data-section="calendar">
                         <div class="we-row">
                             <label>启用日历注入</label>
                             <input type="checkbox" id="we-calendar-enabled" />
@@ -452,11 +479,11 @@ function buildSettingsHtml() {
                 </div>
 
                 <div class="we-section">
-                    <div class="we-section-header" data-section="weather">
+                    <div class="we-section-header collapsed" data-section="weather">
                         <span>🌤 天气系统</span>
                         <span class="we-toggle-icon">▼</span>
                     </div>
-                    <div class="we-section-body" data-section="weather">
+                    <div class="we-section-body hidden" data-section="weather">
                         <div class="we-row">
                             <label>启用天气</label>
                             <input type="checkbox" id="we-weather-enabled" />
@@ -491,11 +518,11 @@ function buildSettingsHtml() {
                 </div>
 
                 <div class="we-section">
-                    <div class="we-section-header" data-section="cycle">
+                    <div class="we-section-header collapsed" data-section="cycle">
                         <span>🩸 生理周期</span>
                         <span class="we-toggle-icon">▼</span>
                     </div>
-                    <div class="we-section-body" data-section="cycle">
+                    <div class="we-section-body hidden" data-section="cycle">
                         <div class="we-row">
                             <label>启用生理周期</label>
                             <input type="checkbox" id="we-cycle-enabled" />
@@ -510,8 +537,10 @@ function buildSettingsHtml() {
                                 <option value="male">男</option>
                                 <option value="unknown">未知</option>
                             </select>
+                            <input type="text" id="we-manual-age" placeholder="年龄" style="width:70px;" />
                             <button class="we-btn" id="we-add-manual">+添加</button>
                         </div>
+                        <div class="we-hint">年龄<12 或 ≥55 将不启用经期模拟。</div>
                         <div id="we-manual-list"></div>
                         <div id="we-cycle-list"></div>
                         <div class="we-row">
@@ -521,14 +550,18 @@ function buildSettingsHtml() {
                 </div>
 
                 <div class="we-section">
-                    <div class="we-section-header" data-section="actions">
+                    <div class="we-section-header collapsed" data-section="actions">
                         <span>🛠 操作</span>
                         <span class="we-toggle-icon">▼</span>
                     </div>
-                    <div class="we-section-body" data-section="actions">
+                    <div class="we-section-body hidden" data-section="actions">
                         <div class="we-row">
                             <button class="we-btn" id="we-reinit-latest">📡 从最新AI重新初始化</button>
                             <button class="we-btn" id="we-scan-all">📜 从头扫描所有历史</button>
+                        </div>
+                        <div class="we-row">
+                            <button class="we-btn" id="we-test-weather">🌦 测试Open-Meteo</button>
+                            <button class="we-btn" id="we-test-calendar">📅 测试节假日API</button>
                         </div>
                         <div class="we-row">
                             <button class="we-btn we-btn-danger" id="we-reset-state">🗑 清除当前对话的世界状态</button>
@@ -606,6 +639,19 @@ function bindSettingsEvents() {
         saveState();
     });
 
+    $('#we-worldtag-mode').on('change', function () {
+        getSettings().worldTagMode = this.checked;
+        saveState();
+        updateWorldTagUI();
+        updateInjection();
+    });
+
+    $('#we-worldtag-prompt').on('change', function () {
+        getSettings().worldTagPromptEnabled = this.checked;
+        saveState();
+        updateInjection();
+    });
+
     $('#we-tag-wrapper').on('change', function () {
         getSettings().tagWrapper = this.value.trim();
         saveState();
@@ -614,20 +660,12 @@ function bindSettingsEvents() {
         getSettings().timeKey = this.value.trim();
         saveState();
     });
-    $('#we-scene-key').on('change', function () {
-        getSettings().sceneKey = this.value.trim();
-        saveState();
-    });
     $('#we-location-key').on('change', function () {
         getSettings().locationKey = this.value.trim();
         saveState();
     });
     $('#we-time-regex').on('change', function () {
         getSettings().timeRegexCustom = this.value.trim();
-        saveState();
-    });
-    $('#we-scene-regex').on('change', function () {
-        getSettings().sceneRegexCustom = this.value.trim();
         saveState();
     });
     $('#we-location-regex').on('change', function () {
@@ -650,7 +688,6 @@ function bindSettingsEvents() {
         const presets = Array.isArray(settings.regexPresets) ? settings.regexPresets : [];
         const nameInput = $('#we-regex-preset-name').val().trim();
         const timeRegex = $('#we-time-regex').val().trim();
-        const sceneRegex = $('#we-scene-regex').val().trim();
         const locationRegex = $('#we-location-regex').val().trim();
 
         let preset = null;
@@ -669,7 +706,6 @@ function bindSettingsEvents() {
 
         preset.name = nameInput || preset.name || `预设${presets.length}`;
         preset.timeRegex = timeRegex;
-        preset.sceneRegex = sceneRegex;
         preset.locationRegex = locationRegex;
 
         settings.regexPresets = presets;
@@ -707,7 +743,7 @@ function bindSettingsEvents() {
             const msg = context.chat[i];
             if (msg.is_user) continue;
             const detected = autoDetectFormat(msg.mes);
-            if (detected.fields.length > 0) {
+            if (detected && detected.fields && detected.fields.length > 0) {
                 const settings = getSettings();
                 if (detected.tagWrapper) {
                     settings.tagWrapper = detected.tagWrapper;
@@ -717,16 +753,12 @@ function bindSettingsEvents() {
                     settings.timeKey = detected.timeKey;
                     $('#we-time-key').val(detected.timeKey);
                 }
-                if (detected.sceneKey) {
-                    settings.sceneKey = detected.sceneKey;
-                    $('#we-scene-key').val(detected.sceneKey);
-                }
                 if (detected.locationKey) {
                     settings.locationKey = detected.locationKey;
                     $('#we-location-key').val(detected.locationKey);
                 }
                 saveState();
-                toastr.success(`检测到标签: ${detected.tagWrapper || '无'}, 时间Key: ${detected.timeKey || '无'}, 场景Key: ${detected.sceneKey || '无'}, 地点Key: ${detected.locationKey || '无'}`, '天气与日历小助手', { timeOut: 5000 });
+                toastr.success(`检测到标签: ${detected.tagWrapper || '无'}, 时间Key: ${detected.timeKey || '无'}, 地点Key: ${detected.locationKey || '无'}`, '天气与日历小助手', { timeOut: 5000 });
                 found = true;
                 break;
             }
@@ -886,21 +918,35 @@ function bindSettingsEvents() {
     $('#we-add-manual').on('click', function () {
         const name = $('#we-manual-name').val().trim();
         const gender = $('#we-manual-gender').val();
+        const ageRaw = $('#we-manual-age').val().trim();
+        let age = null;
+
         if (!name) {
             toastr.warning('角色名不能为空', '天气与日历小助手');
             return;
         }
+        if (ageRaw) {
+            const n = parseInt(ageRaw);
+            if (isNaN(n) || n <= 0) {
+                toastr.warning('年龄需要是正整数', '天气与日历小助手');
+                return;
+            }
+            age = n;
+        }
+
         const settings = getSettings();
         if (!Array.isArray(settings.manualCharacters)) settings.manualCharacters = [];
         const existing = settings.manualCharacters.find(x => x.name === name);
         if (existing) {
             existing.gender = gender;
+            existing.age = age;
         } else {
-            settings.manualCharacters.push({ name, gender });
+            settings.manualCharacters.push({ name, gender, age });
         }
         saveState();
         renderManualList();
         $('#we-manual-name').val('');
+        $('#we-manual-age').val('');
         toastr.success('已添加/更新角色', '天气与日历小助手');
         if (getChatState().currentTime) {
             updateCycleStates(getChatState().currentTime.split('T')[0]);
@@ -960,7 +1006,6 @@ function bindSettingsEvents() {
             const extracted = extractFromMessage(msg.mes, settings);
             if (extracted.time) {
                 cs.currentTime = extracted.time.iso;
-                if (extracted.scene) cs.currentScene = extracted.scene;
                 if (extracted.location) cs.currentLocation = extracted.location;
                 cs.lastParsedMessageId = i;
                 if (extracted.eraYear) {
@@ -984,6 +1029,39 @@ function bindSettingsEvents() {
         refreshStatusDisplay();
         await updateInjection();
         toastr.success(`扫描完毕，共解析 ${count} 条时间记录`, '天气与日历小助手');
+    });
+
+    $('#we-test-weather').on('click', async function () {
+        const settings = getSettings();
+        const cs = getChatState();
+        const location = (cs.currentLocation || settings.defaultCity || '').trim();
+        if (!location) {
+            toastr.warning('请先设置默认城市或让AI解析地点', '天气与日历小助手');
+            return;
+        }
+        const dateStr = cs.currentTime ? cs.currentTime.split('T')[0] : formatDate(new Date());
+        try {
+            const w = await getWeatherForDate(dateStr, location, settings, null);
+            if (w && w.cn) {
+                toastr.success(`Open-Meteo 正常：${w.cn} ${w.temp}°C`, '天气与日历小助手');
+            } else {
+                toastr.error('Open-Meteo 返回异常，请检查网络/城市名', '天气与日历小助手');
+            }
+        } catch (e) {
+            toastr.error('Open-Meteo 调用失败，请检查网络', '天气与日历小助手');
+        }
+    });
+
+    $('#we-test-calendar').on('click', async function () {
+        const settings = getSettings();
+        const dateStr = formatDate(new Date());
+        try {
+            const info = await getHolidayInfo(dateStr, settings.countryCode);
+            const name = info.holidayLocalName || info.holidayName || '无';
+            toastr.success(`日历API正常：${dateStr} ${info.dayType}，节日：${name}`, '天气与日历小助手');
+        } catch (e) {
+            toastr.error('日历API调用失败，请检查网络', '天气与日历小助手');
+        }
     });
 
     $('#we-reset-state').on('click', async function () {
@@ -1018,6 +1096,30 @@ function bindSettingsEvents() {
         }
     });
 
+    $('#we-settings-panel').on('change', '.we-age-input', function () {
+        const name = $(this).data('name');
+        const val = $(this).val().trim();
+        const settings = getSettings();
+        if (!settings.ageOverrides) settings.ageOverrides = {};
+        if (!val) {
+            delete settings.ageOverrides[name];
+        } else {
+            const age = parseInt(val);
+            if (isNaN(age) || age <= 0) {
+                toastr.warning('年龄需要是正整数', '天气与日历小助手');
+                $(this).val(settings.ageOverrides?.[name] || '');
+                return;
+            }
+            settings.ageOverrides[name] = age;
+        }
+        saveState();
+        if (getChatState().currentTime) {
+            updateCycleStates(getChatState().currentTime.split('T')[0]);
+            refreshStatusDisplay();
+            updateInjection();
+        }
+    });
+
     $('#we-settings-panel').on('click', '.we-del-manual', function () {
         const name = $(this).data('name');
         const settings = getSettings();
@@ -1032,6 +1134,22 @@ function bindSettingsEvents() {
     });
 }
 
+function updateWorldTagUI() {
+    const enabled = getSettings().worldTagMode;
+    const disabled = enabled;
+    $('#we-tag-wrapper').prop('disabled', disabled);
+    $('#we-time-key').prop('disabled', disabled);
+    $('#we-location-key').prop('disabled', disabled);
+    $('#we-time-regex').prop('disabled', disabled);
+    $('#we-location-regex').prop('disabled', disabled);
+    $('#we-regex-preset').prop('disabled', disabled);
+    $('#we-regex-preset-name').prop('disabled', disabled);
+    $('#we-regex-preset-save').prop('disabled', disabled);
+    $('#we-regex-preset-delete').prop('disabled', disabled);
+    $('#we-auto-detect').prop('disabled', disabled);
+    $('#we-worldtag-prompt').prop('disabled', !enabled);
+}
+
 function loadSettingsToUI() {
     const s = getSettings();
     $('#we-enabled').prop('checked', s.enabled);
@@ -1039,12 +1157,12 @@ function loadSettingsToUI() {
     $('#we-world-era').val(s.worldEra || 'modern');
     $('#we-start-time').val(s.customStartTime);
     $('#we-init-latest').prop('checked', s.initFromLatest);
+    $('#we-worldtag-mode').prop('checked', s.worldTagMode);
+    $('#we-worldtag-prompt').prop('checked', s.worldTagPromptEnabled);
     $('#we-tag-wrapper').val(s.tagWrapper);
     $('#we-time-key').val(s.timeKey);
-    $('#we-scene-key').val(s.sceneKey);
     $('#we-location-key').val(s.locationKey);
     $('#we-time-regex').val(s.timeRegexCustom);
-    $('#we-scene-regex').val(s.sceneRegexCustom);
     $('#we-location-regex').val(s.locationRegexCustom);
     renderRegexPresetOptions();
     $('#we-calendar-enabled').prop('checked', s.calendarEnabled);
@@ -1061,6 +1179,7 @@ function loadSettingsToUI() {
     renderGenderOverrideList();
     renderManualList();
     renderCycleList();
+    updateWorldTagUI();
 }
 
 function renderEventList() {
@@ -1133,13 +1252,10 @@ function getRegexPresetById(id) {
 function applyRegexPreset(preset) {
     const settings = getSettings();
     const t = preset.timeRegex || '';
-    const s = preset.sceneRegex || '';
     const l = preset.locationRegex || '';
     settings.timeRegexCustom = t;
-    settings.sceneRegexCustom = s;
     settings.locationRegexCustom = l;
     $('#we-time-regex').val(t);
-    $('#we-scene-regex').val(s);
     $('#we-location-regex').val(l);
     saveState();
 }
@@ -1234,6 +1350,7 @@ function renderGenderOverrideList() {
     for (const { name, text } of checks) {
         const info = detectGenderInfo(text);
         const override = settings.genderOverrides?.[name] || 'auto';
+        const ageVal = settings.ageOverrides?.[name] ?? '';
         const line = $(`
             <div class="we-row" style="margin-bottom:4px;">
                 <label>${name}</label>
@@ -1244,9 +1361,11 @@ function renderGenderOverrideList() {
                     <option value="male">男</option>
                     <option value="unknown">未知</option>
                 </select>
+                <input type="text" class="we-age-input" data-name="${name}" placeholder="年龄" style="width:70px;" />
             </div>
         `);
         line.find('select').val(override);
+        line.find('.we-age-input').val(ageVal);
         container.append(line);
     }
 }
@@ -1262,8 +1381,9 @@ function renderManualList() {
     }
 
     for (const item of settings.manualCharacters) {
+        const ageText = item.age ? `，${item.age}岁` : '';
         const line = $(`<div class="we-row" style="margin-bottom:4px;">
-            <span style="font-size:12px;">${item.name}（${item.gender}）</span>
+            <span style="font-size:12px;">${item.name}（${item.gender}${ageText}）</span>
             <button class="we-btn we-btn-danger we-del-manual" data-name="${item.name}" style="margin-left:auto;">✕</button>
         </div>`);
         container.append(line);
@@ -1284,7 +1404,8 @@ function renderCycleList() {
 
     for (const [name, data] of Object.entries(cs.cycleStates)) {
         const status = getCycleStatus(data, dateStr);
-        const text = status ? `${name}: ${status.description} (周期${data.cycleLength}天, 经期${data.periodDuration}天)` : `${name}: 数据异常`;
+        const ageText = data.age ? `，年龄${data.age}` : '';
+        const text = status ? `${name}: ${status.description} (周期${data.cycleLength}天, 经期${data.periodDuration}天${ageText})` : `${name}: 数据异常`;
         container.append(`<div class="we-hint" style="margin:3px 0;">🩸 ${text}</div>`);
     }
 
@@ -1305,7 +1426,6 @@ function refreshStatusDisplay() {
         lines.push('发送消息后将自动从AI回复中解析。');
     } else {
         lines.push(`🕐 世界时间: ${cs.currentTime}`);
-        if (cs.currentScene) lines.push(`📍 场景: ${cs.currentScene}`);
         if (cs.currentLocation) lines.push(`🏙 地点: ${cs.currentLocation}`);
         if (cs.weatherState) {
             const src = cs.weatherState.source ? `(${cs.weatherState.source})` : '';
@@ -1323,4 +1443,11 @@ function refreshStatusDisplay() {
     renderGenderOverrideList();
     renderManualList();
     renderCycleList();
+}
+
+function formatDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
 }
