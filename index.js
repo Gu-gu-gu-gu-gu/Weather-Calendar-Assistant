@@ -564,6 +564,9 @@ function buildSettingsHtml() {
                             <button class="we-btn" id="we-test-calendar">📅 测试节假日API</button>
                         </div>
                         <div class="we-row">
+                            <button class="we-btn" id="we-diagnose">🧪 一键诊断并复制</button>
+                        </div>
+                        <div class="we-row">
                             <button class="we-btn we-btn-danger" id="we-reset-state">🗑 清除当前对话的世界状态</button>
                         </div>
                     </div>
@@ -1064,6 +1067,21 @@ function bindSettingsEvents() {
         }
     });
 
+    $('#we-diagnose').on('click', async function () {
+        const modal = openDiagnosticModal();
+        try {
+            const text = await runDiagnostics((percent, msg) => {
+                updateDiagnosticModal(modal, percent, msg);
+            });
+            await copyToClipboard(text);
+            updateDiagnosticModal(modal, 100, '完成，已复制到剪贴板');
+            modal.find('.we-diagnose-result').text(text);
+        } catch (e) {
+            updateDiagnosticModal(modal, 100, `诊断失败: ${e?.message || e}`);
+            modal.find('.we-diagnose-result').text(String(e));
+        }
+    });
+
     $('#we-reset-state').on('click', async function () {
         if (!confirm('确定要清除当前对话的所有世界状态吗？')) return;
         const context = SillyTavern.getContext();
@@ -1443,6 +1461,161 @@ function refreshStatusDisplay() {
     renderGenderOverrideList();
     renderManualList();
     renderCycleList();
+}
+
+async function runDiagnostics(onProgress) {
+    const settings = getSettings();
+    const cs = getChatState();
+    const now = new Date();
+    const dateStr = formatDate(now);
+
+    const lines = [];
+    const update = (percent, msg) => {
+        if (onProgress) onProgress(percent, msg);
+        return new Promise(resolve => setTimeout(resolve, 80));
+    };
+
+    await update(5, '收集基础信息...');
+    lines.push('==== WorldEngine 诊断报告 ====');
+    lines.push(`- 诊断时间: ${now.toISOString()}`);
+    lines.push(`- 插件版本: 1.3.0`);
+
+    await update(15, '读取插件设置...');
+    lines.push('\n[⚙️ 插件设置]');
+    lines.push(`- 启用状态: ${settings.enabled ? '✅' : '❌'}`);
+    lines.push(`- 解析模式: ${settings.worldTagMode ? 'WORLD标签' : '字段/正则'}`);
+    lines.push(`- 国家/地区: ${settings.countryCode}`);
+    lines.push(`- 时代模式: ${settings.worldEra === 'ancient' ? '古代' : '现代'}`);
+    lines.push(`- 天气系统: ${settings.weatherEnabled ? '✅' : '❌'}`);
+    lines.push(`- 日历注入: ${settings.calendarEnabled ? '✅' : '❌'}`);
+    lines.push(`- 生理周期: ${settings.cycleEnabled ? '✅' : '❌'}`);
+    lines.push(`- 默认城市: ${settings.defaultCity || '未设置'}`);
+    lines.push(`- 网络状态: ${navigator.onLine ? '在线' : '离线'}`);
+
+    await update(30, '读取当前世界状态...');
+    lines.push('\n[🌍 当前世界状态]');
+    lines.push(`- 世界时间: ${cs.currentTime || '尚未初始化'}`);
+    lines.push(`- 当前地点: ${cs.currentLocation || '未知'}`);
+    if (cs.weatherState) {
+        lines.push(`- 当前天气: ${cs.weatherState.cn} ${cs.weatherState.temp}°C (来源: ${cs.weatherState.source || '未知'})`);
+    } else {
+        lines.push('- 当前天气: 无');
+    }
+    lines.push(`- 周期角色数: ${Object.keys(cs.cycleStates || {}).length}`);
+    lines.push(`- 快照数: ${Object.keys(cs.snapshots || {}).length}`);
+
+    await update(50, '加载并测试日历API...');
+    lines.push('\n[📡 API & 服务测试]');
+    await loadChineseDays();
+    lines.push(`- chinese-days 库: ${window.chineseDays ? '已加载' : '加载失败'}`);
+
+    let calendarResult = '未测试';
+    try {
+        const info = await getHolidayInfo(dateStr, settings.countryCode);
+        calendarResult = `✅ 成功 (${info.dayType}, ${info.holidayLocalName || '无节日'})`;
+    } catch (e) {
+        calendarResult = `❌ 失败 (${e?.message || e})`;
+    }
+    lines.push(`- 日历API (Nager): ${calendarResult}`);
+
+    await update(75, '测试天气API...');
+    let weatherResult = '未测试';
+    if (!settings.weatherEnabled) {
+        weatherResult = '已关闭';
+    } else {
+        const loc = cs.currentLocation || settings.defaultCity;
+        if (!loc) {
+            weatherResult = '🟡 跳过 (缺少地点/默认城市)';
+        } else {
+            try {
+                const w = await getWeatherForDate(dateStr, loc, settings, null);
+                weatherResult = w ? `✅ 成功 (${w.cn} ${w.temp}°C)` : `❌ 失败 (无数据返回)`;
+            } catch (e) {
+                weatherResult = `❌ 失败 (${e?.message || e})`;
+            }
+        }
+    }
+    lines.push(`- 天气API (Open-Meteo): ${weatherResult}`);
+
+    await update(100, '报告生成完毕');
+    lines.push('\n==== 诊断结束 ====');
+    return lines.join('\n');
+}
+
+async function copyToClipboard(text) {
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+    } catch (_) { }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+    } catch (_) { }
+    document.body.removeChild(textarea);
+}
+
+function openDiagnosticModal() {
+    let modal = $('#we-diagnose-modal');
+    if (!modal.length) {
+        const html = `
+        <div id="we-diagnose-modal" class="we-modal">
+            <div class="we-modal-content">
+                <div class="we-modal-header">
+                    <span>🧪 WorldEngine 诊断报告</span>
+                    <button class="we-modal-close">×</button>
+                </div>
+                <div class="we-modal-body">
+                    <div class="we-diagnose-progress-area">
+                        <div class="we-progress-text">准备中...</div>
+                        <div class="we-progress"><div class="we-progress-bar"></div></div>
+                    </div>
+                    <div class="we-diagnose-result-area">
+                        <pre class="we-diagnose-result"></pre>
+                        <button class="we-diagnose-copy-btn">复制</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        $('body').append(html);
+        modal = $('#we-diagnose-modal');
+        modal.on('click', '.we-modal-close', closeDiagnosticModal);
+        modal.on('click', (e) => {
+            if (e.target.id === 'we-diagnose-modal') closeDiagnosticModal();
+        });
+        modal.on('click', '.we-diagnose-copy-btn', async function() {
+            const text = modal.find('.we-diagnose-result').text();
+            const btn = $(this);
+            if (text) {
+                await copyToClipboard(text);
+                btn.text('已复制!');
+                setTimeout(() => btn.text('复制'), 1500);
+            }
+        });
+    }
+
+    modal.find('.we-diagnose-result').text('');
+    updateDiagnosticModal(modal, 0, '准备中...');
+    modal.removeClass('hidden').addClass('visible');
+    return modal;
+}
+
+function closeDiagnosticModal() {
+    const modal = $('#we-diagnose-modal');
+    modal.removeClass('visible').addClass('hidden');
+    const oldInterval = modal.data('progress-interval');
+    if (oldInterval) clearInterval(oldInterval);
+}
+
+function updateDiagnosticModal(modal, percent, msg) {
+    modal.find('.we-progress-bar').css('width', `${percent}%`);
+    modal.find('.we-progress-text').text(msg || '');
 }
 
 function formatDate(d) {
