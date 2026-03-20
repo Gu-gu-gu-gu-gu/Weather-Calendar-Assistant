@@ -1,5 +1,14 @@
 # Changelog
 
+### v1.4.1
+
+- Removed the “Rain Bias” setting and simplified the weather continuity logic
+- Fixed an issue where the weather type could change after continuity adjustment but the `isRainy` flag was not updated accordingly
+- Unified all weather sources (API + roll) to always include a correct `isRainy` flag
+- Adjusted season mapping so that September is treated as summer, avoiding unrealistically low temperatures in early autumn for South China
+- Slightly increased the daily mean temperature for low‑latitude regions (|latitude| ≤ 25°) during September–November to better match perceived temperatures
+- Slightly optimized the temperature continuity calculation to reduce extreme day‑to‑day temperature jumps
+
 ### v1.4.0
 
 - Added bilingual UI (auto-detect + manual switch)
