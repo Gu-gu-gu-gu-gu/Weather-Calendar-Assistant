@@ -9,7 +9,6 @@ export const DEFAULT_SETTINGS = {
     worldTagMode: false,
     worldTagPromptEnabled: true,
     timeRegexCustom: '',
-    timeRegexCustom: '',
     sceneRegexCustom: '',
     locationRegexCustom: '',
     countryCode: 'CN',
@@ -33,7 +32,8 @@ export const DEFAULT_SETTINGS = {
     worldEra: 'modern',
     ancientLocationMap: [],
     regexPresets: [],
-    regexPresetLastId: ''
+    regexPresetLastId: '',
+    uiLanguage: 'auto'
 };
 
 export function getSettings() {
