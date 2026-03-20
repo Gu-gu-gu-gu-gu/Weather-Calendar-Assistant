@@ -2,12 +2,12 @@
 
 ### v1.4.1
 
-- 移除「雨天偏向」设置，简化天气连续性逻辑
-- 修复连续性调整后天气类型变化但雨天标记（isRainy）未同步的问题
-- 统一所有天气来源（API + roll）都会带上正确的 isRainy 标记
-- 调整季节划分：9 月按夏季处理，避免华南地区初秋温度过低
-- 对低纬度地区（|纬度| ≤ 25°）在 9–11 月略微上调日均温，更接近体感温度
-- 小幅优化温度连续性计算，减少前后两天温度的极端跳变
+- Removed the “Rain Bias” setting and simplified the weather continuity logic
+- Fixed an issue where the weather type could change after continuity adjustment but the `isRainy` flag was not updated accordingly
+- Unified all weather sources (API + roll) to always include a correct `isRainy` flag
+- Adjusted season mapping so that September is treated as summer, avoiding unrealistically low temperatures in early autumn for South China
+- Slightly increased the daily mean temperature for low‑latitude regions (|latitude| ≤ 25°) during September–November to better match perceived temperatures
+- Slightly optimized the temperature continuity calculation to reduce extreme day‑to‑day temperature jumps
 
 ### v1.4.0
 
