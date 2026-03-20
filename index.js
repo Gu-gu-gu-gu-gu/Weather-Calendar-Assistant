@@ -1499,7 +1499,7 @@ async function runDiagnostics(onProgress) {
     await update(5, t('diag.progressBase'));
     lines.push(t('diag.title'));
     lines.push(t('diag.time', { time: now.toISOString() }));
-    lines.push(t('diag.version', { version: '1.3.0' }));
+    lines.push(t('diag.version', { version: '1.4.1' }));
 
     await update(15, t('diag.progressSettings'));
     lines.push('\n' + t('diag.settings'));
