@@ -1,7 +1,7 @@
 # 🌤 Weather & Calendar Assistant (Weather-Calendar-Assistant)
 
 [![中文](https://img.shields.io/badge/中文-README-green)](README.md)
-[Changelog](https://github.com/Gu-gu-gu-gu-gu/Weather-Calendar-Assistant/blob/a32b197254ab89f6a317fca8abe5a970410601cf/CHANGELOG.en.md)
+[![Changelog](https://img.shields.io/badge/Changelog-CHANGELOG-brightgreen)](https://github.com/Gu-gu-gu-gu-gu/Weather-Calendar-Assistant/blob/a32b197254ab89f6a317fca8abe5a970410601cf/CHANGELOG.en.md)
 
 A front-end extension plugin for [SillyTavern](https://github.com/SillyTavern/SillyTavern). It automatically tracks world time, holidays, weather, and character physiological cycles in roleplay, then injects the “world state” into prompts to keep time consistency and narrative continuity.
 
