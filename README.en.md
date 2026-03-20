@@ -101,8 +101,8 @@ Character physiological status:
 
 ## 📸 Screenshots
 
-![Settings Panel](assets/screenshot-1.png)
-![Prompt Injection Effect](assets/screenshot-2.png)
+![Settings Panel](assets/screenshot-3.png)
+![Prompt Injection Effect](assets/screenshot-4.png)
 
 ---
 
