@@ -104,8 +104,8 @@ const ANCIENT_TO_MODERN = {
 
 function getSeason(month) {
     if ([3, 4, 5].includes(month)) return 'spring';
-    if ([6, 7, 8].includes(month)) return 'summer';
-    if ([9, 10, 11].includes(month)) return 'autumn';
+    if ([6, 7, 8, 9].includes(month)) return 'summer';
+    if ([10, 11].includes(month)) return 'autumn';
     return 'winter';
 }
 
@@ -136,6 +136,7 @@ export function rollWeather(month) {
         extreme: !!picked.extreme,
         season,
         source: 'roll',
+        isRainy: isRainyType(picked.type),
     };
 }
 
@@ -184,6 +185,14 @@ export async function getWeatherForDate(dateStr, locationName, settings, previou
                 const warming = yearsDiff * 0.02;
                 data.temp = data.temp + warming;
             }
+        }
+    }
+
+    if (data) {
+        const lat = geo.latitude;
+        const monthNum = target.getMonth() + 1;
+        if (typeof lat === 'number' && Math.abs(lat) <= 25 && monthNum >= 9 && monthNum <= 11) {
+            data.temp = Math.round(data.temp + 2);
         }
     }
 
@@ -291,30 +300,49 @@ function applyContinuity(baseWeather, previousWeather, settings) {
     if (!settings.weatherContinuity || Math.random() > settings.weatherContinuity / 100) return baseWeather;
 
     let temp = baseWeather.temp;
-    const prevTemp = previousWeather.temp;
+    const prevTemp = typeof previousWeather.temp === 'number' ? previousWeather.temp : baseWeather.temp;
     const jitter = settings.weatherTempJitter || 0;
-    const adjust = Math.max(-2, Math.min(2, prevTemp - temp)) * 0.5;
-    temp = Math.round(temp + adjust + (Math.random() * jitter * 2 - jitter));
+    const diff = prevTemp - temp;
+    const clampDiff = Math.max(-2, Math.min(2, diff)) * 0.5;
+    temp = Math.round(temp + clampDiff + (Math.random() * jitter * 2 - jitter));
 
     let type = baseWeather.type;
-    if (baseWeather.isRainy) {
-        if (Math.random() < 0.7 + (settings.weatherRainBias || 0) / 100) {
+    const baseRainy = !!baseWeather.isRainy;
+    const prevRainy = !!previousWeather.isRainy;
+
+    if (baseRainy && prevRainy) {
+        if (Math.random() < 0.8) {
             type = baseWeather.type;
         } else {
             type = previousWeather.type || baseWeather.type;
         }
+    } else if (baseRainy && !prevRainy) {
+        if (Math.random() < 0.6) {
+            type = baseWeather.type;
+        } else {
+            type = previousWeather.type || baseWeather.type;
+        }
+    } else if (!baseRainy && prevRainy) {
+        if (Math.random() < 0.4) {
+            type = previousWeather.type || baseWeather.type;
+        } else {
+            type = baseWeather.type;
+        }
     } else {
-        if (previousWeather.isRainy && Math.random() < 0.3) {
-            type = previousWeather.type;
+        if (Math.random() < 0.2) {
+            type = previousWeather.type || baseWeather.type;
         } else {
             type = baseWeather.type;
         }
     }
 
+    const isRainy = isRainyType(type);
+
     return {
         ...baseWeather,
         type,
         temp,
+        isRainy,
     };
 }
 
