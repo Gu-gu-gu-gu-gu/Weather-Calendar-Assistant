@@ -1,3 +1,5 @@
+import { t, getLocale } from './i18n.js';
+
 let chineseDaysLoaded = false;
 let chineseDaysLoadFailed = false;
 const nagerCache = {};
@@ -18,7 +20,7 @@ export async function loadChineseDays() {
             document.head.appendChild(script);
         });
     } catch (e) {
-        console.warn('[WorldEngine] chinese-days CDN 加载失败，将使用 Nager.Date 替代', e);
+        console.warn(t('calendar.warnLoadFailed'), e);
     }
 }
 
@@ -33,7 +35,7 @@ async function fetchNagerHolidays(year, countryCode) {
             return data;
         }
     } catch (e) {
-        console.warn('[WorldEngine] Nager.Date API 请求失败', e);
+        console.warn(t('calendar.warnNagerFail'), e);
     }
     return [];
 }
@@ -53,11 +55,13 @@ function buildLunarText(lunar) {
 export async function getHolidayInfo(dateStr, countryCode) {
     await loadChineseDays();
 
+    const locale = getLocale();
+    const weekDayNames = locale.calendar?.weekDays || ['日', '一', '二', '三', '四', '五', '六'];
+
     const d = new Date(dateStr + 'T00:00:00');
     const year = d.getFullYear();
     const dayOfWeek = d.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const weekDayNames = ['日', '一', '二', '三', '四', '五', '六'];
 
     const info = {
         dateStr,
@@ -70,7 +74,7 @@ export async function getHolidayInfo(dateStr, countryCode) {
         holidayLocalName: '',
         isInLieu: false,
         lunarDate: '',
-        dayType: isWeekend ? '周末' : '工作日',
+        dayType: isWeekend ? t('calendar.dayType.weekend') : t('calendar.dayType.workday'),
     };
 
     if (countryCode === 'CN' && canUseChineseDays(year)) {
@@ -82,13 +86,13 @@ export async function getHolidayInfo(dateStr, countryCode) {
                 info.isInLieu = cd.isInLieu(dateStr);
             }
             if (info.isHoliday) {
-                info.dayType = '节假日';
+                info.dayType = t('calendar.dayType.holiday');
             } else if (info.isInLieu) {
-                info.dayType = '调休工作日';
+                info.dayType = t('calendar.dayType.inLieu');
             } else if (info.isWorkday) {
-                info.dayType = '工作日';
+                info.dayType = t('calendar.dayType.workday');
             } else {
-                info.dayType = '周末';
+                info.dayType = t('calendar.dayType.weekend');
             }
 
             if (typeof cd.getDayDetail === 'function') {
@@ -110,7 +114,7 @@ export async function getHolidayInfo(dateStr, countryCode) {
                 if (lunarText) info.lunarDate = lunarText;
             }
         } catch (e) {
-            console.warn('[WorldEngine] chinese-days 调用出错', e);
+            console.warn(t('calendar.warnChineseDaysFail'), e);
         }
     } else {
         const holidays = await fetchNagerHolidays(year, countryCode);
@@ -119,10 +123,10 @@ export async function getHolidayInfo(dateStr, countryCode) {
             info.isHoliday = true;
             info.holidayName = match.name;
             info.holidayLocalName = match.localName;
-            info.dayType = '节假日';
+            info.dayType = t('calendar.dayType.holiday');
         } else {
             info.isWorkday = !isWeekend;
-            info.dayType = isWeekend ? '周末' : '工作日';
+            info.dayType = isWeekend ? t('calendar.dayType.weekend') : t('calendar.dayType.workday');
         }
     }
 
