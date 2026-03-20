@@ -1,7 +1,7 @@
 import { getChatState } from './state.js';
 
-const TIME_KEYS_DEFAULT = ['time', 'date', '时间', '日期', 'datetime'];
-const LOCATION_KEYS_DEFAULT = ['location', '地点', '地区', 'place', '城市', 'city'];
+const TIME_KEYS_DEFAULT = ['time', 'date', '时间', '日期', 'datetime', 'when', 'timestamp'];
+const LOCATION_KEYS_DEFAULT = ['location', '地点', '地区', 'place', '城市', 'city', 'where', 'region', 'area'];
 
 export function autoDetectFormat(messageText) {
     const result = {
@@ -38,43 +38,147 @@ export function autoDetectFormat(messageText) {
 export function parseTimeValue(raw, baseDateStr = null) {
     if (!raw) return null;
     const s = raw.trim();
-    const dateMatch = s.match(/(\d{4})[.\-\/年](\d{1,2})[.\-\/月](\d{1,2})[日]?/);
-    if (dateMatch) {
-        const year = parseInt(dateMatch[1]);
-        const month = parseInt(dateMatch[2]);
-        const day = parseInt(dateMatch[3]);
 
-        const timeMatches = [...s.matchAll(/(\d{1,2}):(\d{2})/g)];
-        let hour = 8, minute = 0;
-        if (timeMatches.length > 0) {
-            hour = parseInt(timeMatches[0][1]);
-            minute = parseInt(timeMatches[0][2]);
-        }
+    let res = parseDateWithYMD(s);
+    if (res) return res;
 
-        let endHour = null, endMinute = null;
-        const crossDay = /次日|翌日|next\s*day/i.test(s);
-        if (timeMatches.length > 1) {
-            endHour = parseInt(timeMatches[1][1]);
-            endMinute = parseInt(timeMatches[1][2]);
-        }
+    res = parseDateWithMonthName(s);
+    if (res) return res;
 
-        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-
-        return {
-            date: new Date(year, month - 1, day, hour, minute),
-            year, month, day, hour, minute,
-            endHour, endMinute, crossDay,
-            dateStr,
-            timeStr,
-            iso: `${dateStr}T${timeStr}:00`,
-        };
-    }
+    res = parseDateWithMDY(s);
+    if (res) return res;
 
     const lunarParsed = parseLunarTimeValue(s, baseDateStr);
     if (lunarParsed) return lunarParsed;
 
+    res = parseTimeOnly(s, baseDateStr);
+    if (res) return res;
+
     return null;
+}
+
+function parseDateWithYMD(s) {
+    const dateMatch = s.match(/(\d{4})[.\-\/年](\d{1,2})[.\-\/月](\d{1,2})[日]?/);
+    if (!dateMatch) return null;
+
+    const year = parseInt(dateMatch[1]);
+    const month = parseInt(dateMatch[2]);
+    const day = parseInt(dateMatch[3]);
+
+    const { hour, minute, endHour, endMinute, crossDay } = parseClockFromString(s);
+    return buildTimeResult(year, month, day, hour, minute, endHour, endMinute, crossDay);
+}
+
+function parseDateWithMonthName(s) {
+    const m = s.match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?\,?\s*(\d{4})/i);
+    if (!m) return null;
+
+    const monthMap = {
+        jan: 1, january: 1,
+        feb: 2, february: 2,
+        mar: 3, march: 3,
+        apr: 4, april: 4,
+        may: 5,
+        jun: 6, june: 6,
+        jul: 7, july: 7,
+        aug: 8, august: 8,
+        sep: 9, sept: 9, september: 9,
+        oct: 10, october: 10,
+        nov: 11, november: 11,
+        dec: 12, december: 12,
+    };
+
+    const monthKey = String(m[1]).toLowerCase();
+    const month = monthMap[monthKey];
+    const day = parseInt(m[2]);
+    const year = parseInt(m[3]);
+
+    if (!month || !day || !year) return null;
+
+    const { hour, minute, endHour, endMinute, crossDay } = parseClockFromString(s);
+    return buildTimeResult(year, month, day, hour, minute, endHour, endMinute, crossDay);
+}
+
+function parseDateWithMDY(s) {
+    const m = s.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/);
+    if (!m) return null;
+
+    let month = parseInt(m[1]);
+    let day = parseInt(m[2]);
+    const year = parseInt(m[3]);
+
+    if (month > 12 && day <= 12) {
+        const tmp = month;
+        month = day;
+        day = tmp;
+    }
+
+    const { hour, minute, endHour, endMinute, crossDay } = parseClockFromString(s);
+    return buildTimeResult(year, month, day, hour, minute, endHour, endMinute, crossDay);
+}
+
+function parseTimeOnly(s, baseDateStr) {
+    if (!baseDateStr) return null;
+    const base = baseDateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!base) return null;
+
+    const { hour, minute, endHour, endMinute, crossDay, hasTime } = parseClockFromString(s);
+    if (!hasTime) return null;
+
+    const year = parseInt(base[1]);
+    const month = parseInt(base[2]);
+    const day = parseInt(base[3]);
+    return buildTimeResult(year, month, day, hour, minute, endHour, endMinute, crossDay);
+}
+
+function parseClockFromString(s) {
+    const matches = [];
+    const re = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/ig;
+    let m;
+    while ((m = re.exec(s)) !== null) {
+        const hasColon = m[2] !== undefined;
+        const hasAmPm = !!m[3];
+        if (!hasColon && !hasAmPm) continue;
+
+        let hour = parseInt(m[1]);
+        let minute = m[2] ? parseInt(m[2]) : 0;
+
+        if (hasAmPm) {
+            const ap = m[3].toLowerCase();
+            if (ap === 'pm' && hour < 12) hour += 12;
+            if (ap === 'am' && hour === 12) hour = 0;
+        }
+
+        matches.push({ hour, minute });
+    }
+
+    let hour = 8, minute = 0;
+    let endHour = null, endMinute = null;
+
+    if (matches.length > 0) {
+        hour = matches[0].hour;
+        minute = matches[0].minute;
+    }
+    if (matches.length > 1) {
+        endHour = matches[1].hour;
+        endMinute = matches[1].minute;
+    }
+
+    const crossDay = /次日|翌日|next\s*day/i.test(s);
+    return { hour, minute, endHour, endMinute, crossDay, hasTime: matches.length > 0 };
+}
+
+function buildTimeResult(year, month, day, hour, minute, endHour, endMinute, crossDay) {
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    return {
+        date: new Date(year, month - 1, day, hour, minute),
+        year, month, day, hour, minute,
+        endHour, endMinute, crossDay,
+        dateStr,
+        timeStr,
+        iso: `${dateStr}T${timeStr}:00`,
+    };
 }
 
 function parseWorldTagBlock(text) {
@@ -93,8 +197,8 @@ function parseWorldTagBlock(text) {
         const key = String(match[1]).trim().toLowerCase();
         const val = String(match[2]).trim();
         if (!val) continue;
-        if (['time', 'date', 'datetime', '时间', '日期'].includes(key)) data.time = val;
-        if (['location', 'place', 'city', '地点', '地区'].includes(key)) data.location = val;
+        if (['time', 'date', 'datetime', '时间', '日期', 'when'].includes(key)) data.time = val;
+        if (['location', 'place', 'city', '地点', '地区', 'where', 'region', 'area'].includes(key)) data.location = val;
     }
     if (!data.time && !data.location) return null;
     return data;
@@ -201,6 +305,11 @@ export function extractFromMessage(messageText, settings) {
                 break;
             }
         }
+    }
+
+    if (!result.location) {
+        const free = detectLocationFreeForm(content);
+        if (free) result.location = free;
     }
 
     const eraInfo = detectEraYearInfo(result.rawTime || content);
@@ -340,4 +449,14 @@ function pickCaptureGroup(m) {
 
 function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function detectLocationFreeForm(content) {
+    const lines = content.split('\n').map(x => x.trim()).filter(Boolean);
+    const re = /^[A-Za-z\u4e00-\u9fff][A-Za-z\u4e00-\u9fff\s]*(?:\s*[·\-–—,，\/]\s*[A-Za-z\u4e00-\u9fff\s]+){1,4}$/;
+    for (const line of lines) {
+        if (line.length < 3 || line.length > 80) continue;
+        if (re.test(line)) return line;
+    }
+    return null;
 }
