@@ -517,10 +517,6 @@ function buildSettingsHtml() {
                             <input type="text" id="we-weather-jitter" placeholder="${t('ui.weather.jitterPh')}" />
                         </div>
                         <div class="we-row">
-                            <label>${t('ui.weather.rainBias')}</label>
-                            <input type="text" id="we-weather-rain-bias" placeholder="${t('ui.weather.rainBiasPh')}" />
-                        </div>
-                        <div class="we-row">
                             <button class="we-btn" id="we-reroll-weather">${t('ui.weather.reroll')}</button>
                         </div>
                     </div>
@@ -914,12 +910,6 @@ function bindSettingsEvents() {
         saveState();
     });
 
-    $('#we-weather-rain-bias').on('change', function () {
-        const v = parseInt(this.value);
-        getSettings().weatherRainBias = isNaN(v) ? 20 : Math.max(0, Math.min(100, v));
-        saveState();
-    });
-
     $('#we-reroll-weather').on('click', async function () {
         const cs = getChatState();
         if (!cs.currentTime) {
@@ -1211,7 +1201,6 @@ function loadSettingsToUI() {
     $('#we-default-city').val(s.defaultCity);
     $('#we-weather-continuity').val(s.weatherContinuity);
     $('#we-weather-jitter').val(s.weatherTempJitter);
-    $('#we-weather-rain-bias').val(s.weatherRainBias);
     $('#we-cycle-enabled').prop('checked', s.cycleEnabled);
     renderEventCharacterOptions();
     renderEventList();
