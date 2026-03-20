@@ -2,6 +2,7 @@ import { getSettings, getChatState } from './state.js';
 import { getHolidayInfo, getNextHoliday, checkEvents, loadChineseDays } from './calendar.js';
 import { getWeatherPrompt } from './weather.js';
 import { getCycleStatus, advanceCycle } from './cycle.js';
+import { t, getLocale } from './i18n.js';
 
 export async function buildInjectionPrompt() {
     const settings = getSettings();
@@ -20,25 +21,18 @@ export async function buildInjectionPrompt() {
     const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 
     const sections = [];
-    sections.push('[📅 World Engine - 世界状态]');
+    sections.push(t('prompt.title'));
 
-    let timePeriod;
-    if (hour >= 5 && hour < 8) timePeriod = '清晨';
-    else if (hour >= 8 && hour < 12) timePeriod = '上午';
-    else if (hour >= 12 && hour < 14) timePeriod = '中午';
-    else if (hour >= 14 && hour < 17) timePeriod = '下午';
-    else if (hour >= 17 && hour < 19) timePeriod = '傍晚';
-    else if (hour >= 19 && hour < 22) timePeriod = '夜晚';
-    else timePeriod = '深夜';
+    const timePeriod = getTimePeriod(hour);
 
     if (settings.worldEra === 'ancient') {
         const lunarInfo = getLunarInfo(dateStr);
         const lunarDate = lunarInfo.lunarDate || '农历未知';
         const eraYearText = buildEraYearText(cs, parsed.getFullYear());
         const ancientTime = formatAncientTime(hour, minute);
-        sections.push(`日期：${eraYearText}${lunarDate} ${ancientTime}（${timePeriod}）`);
+        sections.push(t('prompt.timeAncient', { era: eraYearText, lunar: lunarDate, ancientTime, period: timePeriod }));
     } else {
-        sections.push(`日期：${parsed.getFullYear()}年${parsed.getMonth() + 1}月${parsed.getDate()}日 ${timeStr}（${timePeriod}）`);
+        sections.push(t('prompt.timeModern', { y: parsed.getFullYear(), m: parsed.getMonth() + 1, d: parsed.getDate(), time: timeStr, period: timePeriod }));
     }
 
     if (settings.calendarEnabled) {
@@ -46,25 +40,25 @@ export async function buildInjectionPrompt() {
             const lunarInfo = getLunarInfo(dateStr);
             const solarTerm = getSolarTermName(dateStr);
             if (solarTerm) {
-                sections.push(`节气：${solarTerm}`);
+                sections.push(t('prompt.solarTerm', { name: solarTerm }));
             }
             const festival = getTraditionalFestival(dateStr, lunarInfo.lunarRaw);
             if (festival) {
-                sections.push(`🎉 今日佳节：${festival}`);
+                sections.push(t('prompt.festival', { name: festival }));
             }
         } else {
             try {
                 const holidayInfo = await getHolidayInfo(dateStr, settings.countryCode);
-                sections.push(`星期：${holidayInfo.weekDayName} ｜ 日历类型：${holidayInfo.dayType}`);
+                sections.push(t('prompt.weekDay', { week: holidayInfo.weekDayName, type: holidayInfo.dayType }));
                 if (holidayInfo.isHoliday && holidayInfo.holidayLocalName) {
-                    sections.push(`🎉 今日节日：${holidayInfo.holidayLocalName}`);
+                    sections.push(t('prompt.todayHoliday', { name: holidayInfo.holidayLocalName }));
                 }
                 if (holidayInfo.lunarDate) {
-                    sections.push(`农历：${holidayInfo.lunarDate}`);
+                    sections.push(t('prompt.lunar', { lunar: holidayInfo.lunarDate }));
                 }
                 const nextH = await getNextHoliday(dateStr, settings.countryCode);
                 if (nextH) {
-                    sections.push(`下一个节日：${nextH.localName || nextH.name}（${nextH.dateStr}，还有${nextH.daysUntil}天）`);
+                    sections.push(t('prompt.nextHoliday', { name: nextH.localName || nextH.name, date: nextH.dateStr, days: nextH.daysUntil }));
                 }
             } catch (e) {
                 console.warn('[WorldEngine] 日历注入出错', e);
@@ -77,7 +71,6 @@ export async function buildInjectionPrompt() {
         const currentCharId = getCurrentCharacterId();
         for (const ev of matched) {
             if (!isEventForCurrentChat(ev, currentCharId)) continue;
-            const emoji = ev.type === 'birthday' ? '🎂' : '💝';
             let extra = '';
             if (ev.year) {
                 const currentYear = parsed.getFullYear();
@@ -92,7 +85,11 @@ export async function buildInjectionPrompt() {
                 }
             }
             const owner = getEventOwnerName(ev);
-            sections.push(`${emoji} 今天是${owner}${ev.name}${extra}！`);
+            if (ev.type === 'birthday') {
+                sections.push(t('prompt.eventBirthday', { owner, name: ev.name, extra }));
+            } else {
+                sections.push(t('prompt.eventAnniversary', { owner, name: ev.name, extra }));
+            }
         }
     }
 
@@ -113,16 +110,16 @@ export async function buildInjectionPrompt() {
             }
         }
         if (cycleLines.length > 0) {
-            sections.push('角色生理状态：');
+            sections.push(t('prompt.cycleTitle'));
             sections.push(...cycleLines);
-            sections.push('（生理状态应自然地影响角色的精力、情绪和行为，但不必每次都明确提及）');
+            sections.push(t('prompt.cycleHint'));
         }
     }
 
     if (settings.worldTagMode && settings.worldTagPromptEnabled) {
-        sections.push('每轮回复末尾必须追加一行（不要省略、不要改写格式）：\n[[WORLD]] location=城市 | time=时间[[/WORLD]]\n\n要求：\n- location 必须包含“城市”（如：上海 / Tokyo / Paris）\n- 严格使用 key=value 格式，字段之间用 " | " 分隔\n- 该行必须单独一行，不能与正文混在一起\n- time 必须使用YYYY年MM月DD日 HH:mm或年号x年x月xx x时x刻的格式');
+        sections.push(t('prompt.worldTagGuide'));
     }
-    sections.push('[/World Engine]');
+    sections.push(t('prompt.end'));
     return sections.join('\n');
 }
 
@@ -262,17 +259,7 @@ function getTraditionalFestival(dateStr, lunar) {
 
     if (!lunar) return '';
     const key = `${lunar.lunarMonCN || lunar.monthStr || ''}${lunar.lunarDayCN || lunar.dayStr || ''}`;
-    const map = {
-        '正月初一': '春节',
-        '正月十五': '元宵',
-        '五月初五': '端午',
-        '七月初七': '七夕',
-        '八月十五': '中秋',
-        '九月初九': '重阳',
-        '腊月初八': '腊八',
-        '腊月廿三': '小年',
-        '腊月三十': '除夕'
-    };
+    const map = getLocale().calendar?.traditionalFestivals || {};
     return map[key] || '';
 }
 
@@ -316,18 +303,28 @@ function getCharacterNameById(id) {
 function formatCycleDescription(status, worldEra) {
     if (!status) return '';
     if (worldEra !== 'ancient') return status.description || '';
-    if (status.phase === 'skipped') return '本月经期未至，气血失衡';
+    if (status.phase === 'skipped') return t('cycle.ancientSkipped');
     if (status.phase === 'menstruation') {
         const day = (status.dayInCycle ?? 0) + 1;
-        return `经期第${day}日，气血偏虚，宜静养`;
+        return t('cycle.ancientMenstruation', { day });
     }
-    if (status.phase === 'follicular') return '卵泡期，气血渐盛，精神回升';
-    if (status.phase === 'ovulation') return '排卵期，精神充沛，情绪较佳';
+    if (status.phase === 'follicular') return t('cycle.ancientFollicular');
+    if (status.phase === 'ovulation') return t('cycle.ancientOvulation');
     if (status.phase === 'luteal') {
         if ((status.description || '').includes('经前期')) {
-            return '经前时节，情绪易起伏，体感稍胀';
+            return t('cycle.ancientPms');
         }
-        return '黄体期，状态平稳';
+        return t('cycle.ancientLuteal');
     }
     return status.description || '';
+}
+
+function getTimePeriod(hour) {
+    if (hour >= 5 && hour < 8) return t('prompt.periods.dawn');
+    if (hour >= 8 && hour < 12) return t('prompt.periods.morning');
+    if (hour >= 12 && hour < 14) return t('prompt.periods.noon');
+    if (hour >= 14 && hour < 17) return t('prompt.periods.afternoon');
+    if (hour >= 17 && hour < 19) return t('prompt.periods.evening');
+    if (hour >= 19 && hour < 22) return t('prompt.periods.night');
+    return t('prompt.periods.midnight');
 }
