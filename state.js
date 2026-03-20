@@ -21,7 +21,6 @@ export const DEFAULT_SETTINGS = {
     defaultCity: '',
     weatherContinuity: 70,
     weatherTempJitter: 2,
-    weatherRainBias: 20,
     cycleEnabled: true,
     genderOverrides: {},
     ageOverrides: {},
