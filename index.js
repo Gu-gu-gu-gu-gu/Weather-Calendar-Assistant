@@ -4,6 +4,7 @@ import { loadChineseDays, getHolidayInfo } from './calendar.js';
 import { rollWeather, shouldRerollWeather, getWeatherForDate } from './weather.js';
 import { detectGenderInfo, initCycleForCharacter, getCycleStatus } from './cycle.js';
 import { updateInjection, buildInjectionPrompt } from './injector.js';
+import { t } from './i18n.js';
 
 const SLUG = 'world-engine';
 let panelMounted = false;
@@ -35,10 +36,10 @@ jQuery(() => {
         context.SlashCommandParser.addCommandObject(context.SlashCommand.fromProps({
             name: 'wetime',
             callback: async (_args, value) => {
-                if (!value) return 'Usage: /wetime 2025-06-18 08:00 or /wetime +3d';
+                if (!value) return t('common.usageTimeCmd');
                 return await handleTimeCommand(value.trim());
             },
-            helpString: '手动设置/跳转世界时间。例：/wetime 2025-06-18 08:00 或 /wetime +3d',
+            helpString: t('common.timeCmdHelp'),
         }));
 
         await tryInitFromLatest();
@@ -71,7 +72,7 @@ async function onMessageReceived(messageId) {
     const extracted = extractFromMessage(msg.mes, settings);
 
     if (!extracted.time) {
-        toastr.warning('未能从AI消息中解析出时间信息，世界时间未更新。', '天气与日历小助手', { timeOut: 4000 });
+        toastr.warning(t('toast.parseFail'), t('app.name'), { timeOut: 4000 });
         return;
     }
 
@@ -304,7 +305,7 @@ async function handleTimeCommand(input) {
 
     const jumpMatch = input.match(/^\+(\d+)([dhm])$/i);
     if (jumpMatch) {
-        if (!cs.currentTime) return '当前无世界时间，请先解析一条AI消息。';
+        if (!cs.currentTime) return t('common.noWorldTime');
         const val = parseInt(jumpMatch[1]);
         const unit = jumpMatch[2].toLowerCase();
         const d = new Date(cs.currentTime);
@@ -320,7 +321,7 @@ async function handleTimeCommand(input) {
         saveState();
         refreshStatusDisplay();
         await updateInjection();
-        return `世界时间已跳转至 ${cs.currentTime}`;
+        return t('common.timeJumped', { time: cs.currentTime });
     }
 
     const parsed = parseTimeValue(input);
@@ -332,10 +333,10 @@ async function handleTimeCommand(input) {
         saveState();
         refreshStatusDisplay();
         await updateInjection();
-        return `世界时间已设置为 ${cs.currentTime}`;
+        return t('common.timeSetCmd', { time: cs.currentTime });
     }
 
-    return '无法解析时间。格式示例：2025-06-18 08:00 或 +3d +6h +30m';
+    return t('common.timeParseFail');
 }
 
 function buildSettingsHtml() {
@@ -343,49 +344,57 @@ function buildSettingsHtml() {
     <div id="we-settings-panel" class="extension_settings">
         <div class="inline-drawer">
             <div class="inline-drawer-toggle inline-drawer-header">
-                <b>天气与日历小助手</b>
+                <b>${t('app.name')}</b>
                 <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
             </div>
             <div class="inline-drawer-content">
 
                 <div class="we-section">
                     <div class="we-section-header collapsed" data-section="general">
-                        <span>⚙ 总控</span>
+                        <span>${t('ui.sections.general')}</span>
                         <span class="we-toggle-icon">▼</span>
                     </div>
                     <div class="we-section-body hidden" data-section="general">
                         <div class="we-row">
-                            <label>启用插件</label>
+                            <label>${t('ui.language')}</label>
+                            <select id="we-ui-lang">
+                                <option value="auto">${t('ui.langAuto')}</option>
+                                <option value="zh">${t('ui.langZh')}</option>
+                                <option value="en">${t('ui.langEn')}</option>
+                            </select>
+                        </div>
+                        <div class="we-row">
+                            <label>${t('ui.general.enabled')}</label>
                             <input type="checkbox" id="we-enabled" />
                         </div>
                         <div class="we-row">
-                            <label>国家/地区</label>
+                            <label>${t('ui.general.country')}</label>
                             <select id="we-country">
-                                <option value="CN">中国 (CN)</option>
-                                <option value="US">美国 (US)</option>
-                                <option value="JP">日本 (JP)</option>
-                                <option value="KR">韩国 (KR)</option>
-                                <option value="GB">英国 (GB)</option>
-                                <option value="DE">德国 (DE)</option>
-                                <option value="FR">法国 (FR)</option>
-                                <option value="CA">加拿大 (CA)</option>
-                                <option value="AU">澳大利亚 (AU)</option>
-                                <option value="RU">俄罗斯 (RU)</option>
+                                <option value="CN">${t('ui.countryOptions.CN')}</option>
+                                <option value="US">${t('ui.countryOptions.US')}</option>
+                                <option value="JP">${t('ui.countryOptions.JP')}</option>
+                                <option value="KR">${t('ui.countryOptions.KR')}</option>
+                                <option value="GB">${t('ui.countryOptions.GB')}</option>
+                                <option value="DE">${t('ui.countryOptions.DE')}</option>
+                                <option value="FR">${t('ui.countryOptions.FR')}</option>
+                                <option value="CA">${t('ui.countryOptions.CA')}</option>
+                                <option value="AU">${t('ui.countryOptions.AU')}</option>
+                                <option value="RU">${t('ui.countryOptions.RU')}</option>
                             </select>
                         </div>
                         <div class="we-row">
-                            <label>时代模式</label>
+                            <label>${t('ui.general.worldEra')}</label>
                             <select id="we-world-era">
-                                <option value="modern">现代</option>
-                                <option value="ancient">古代</option>
+                                <option value="modern">${t('ui.general.modern')}</option>
+                                <option value="ancient">${t('ui.general.ancient')}</option>
                             </select>
                         </div>
                         <div class="we-row">
-                            <label>自定义起始时间</label>
-                            <input type="text" id="we-start-time" placeholder="留空=从AI消息解析 | 格式：2025-06-18 08:00" />
+                            <label>${t('ui.general.startTime')}</label>
+                            <input type="text" id="we-start-time" placeholder="${t('ui.general.startTimePh')}" />
                         </div>
                         <div class="we-row">
-                            <label>从最新AI初始化</label>
+                            <label>${t('ui.general.initLatest')}</label>
                             <input type="checkbox" id="we-init-latest" />
                         </div>
                     </div>
@@ -393,194 +402,194 @@ function buildSettingsHtml() {
 
                 <div class="we-section">
                     <div class="we-section-header collapsed" data-section="parser">
-                        <span>🔍 解析设置</span>
+                        <span>${t('ui.sections.parser')}</span>
                         <span class="we-toggle-icon">▼</span>
                     </div>
                     <div class="we-section-body hidden" data-section="parser">
                         <div class="we-row">
-                            <label>强制WORLD格式</label>
+                            <label>${t('ui.parser.worldTagMode')}</label>
                             <input type="checkbox" id="we-worldtag-mode" />
                         </div>
-                        <div class="we-hint">启用后仅解析 [[WORLD]]...[[/WORLD]]，并禁用正则/字段解析。</div>
+                        <div class="we-hint">${t('ui.parser.worldTagModeHint')}</div>
                         <div class="we-row">
-                            <label>注入WORLD提示词</label>
+                            <label>${t('ui.parser.worldTagPrompt')}</label>
                             <input type="checkbox" id="we-worldtag-prompt" />
                         </div>
-                        <div class="we-hint">关闭后插件不会注入[[WORLD]]格式要求（适合已在世界书/预设内固定格式）。</div>
+                        <div class="we-hint">${t('ui.parser.worldTagPromptHint')}</div>
                         <div class="we-row">
-                            <label>XML标签名</label>
-                            <input type="text" id="we-tag-wrapper" placeholder="如：horae（留空=自动检测）" />
+                            <label>${t('ui.parser.tagWrapper')}</label>
+                            <input type="text" id="we-tag-wrapper" placeholder="${t('ui.parser.tagWrapperPh')}" />
                         </div>
                         <div class="we-row">
-                            <label>时间字段Key</label>
-                            <input type="text" id="we-time-key" placeholder="如：time" />
+                            <label>${t('ui.parser.timeKey')}</label>
+                            <input type="text" id="we-time-key" placeholder="${t('ui.parser.timeKeyPh')}" />
                         </div>
                         <div class="we-row">
-                            <label>地点字段Key</label>
-                            <input type="text" id="we-location-key" placeholder="如：location" />
+                            <label>${t('ui.parser.locationKey')}</label>
+                            <input type="text" id="we-location-key" placeholder="${t('ui.parser.locationKeyPh')}" />
                         </div>
                         <div class="we-row">
-                            <label>正则预设</label>
+                            <label>${t('ui.parser.regexPreset')}</label>
                             <select id="we-regex-preset" style="width:160px;"></select>
-                            <input type="text" id="we-regex-preset-name" placeholder="预设名（可空）" style="flex:1" />
-                            <button class="we-btn" id="we-regex-preset-save">保存当前</button>
-                            <button class="we-btn we-btn-danger" id="we-regex-preset-delete">删除当前</button>
+                            <input type="text" id="we-regex-preset-name" placeholder="${t('ui.parser.presetNamePh')}" style="flex:1" />
+                            <button class="we-btn" id="we-regex-preset-save">${t('ui.parser.presetSave')}</button>
+                            <button class="we-btn we-btn-danger" id="we-regex-preset-delete">${t('ui.parser.presetDelete')}</button>
                         </div>
                         <div class="we-row">
-                            <label>时间正则(高级)</label>
-                            <input type="text" id="we-time-regex" placeholder="留空=使用默认解析" />
+                            <label>${t('ui.parser.timeRegex')}</label>
+                            <input type="text" id="we-time-regex" placeholder="${t('ui.parser.timeRegexPh')}" />
                         </div>
                         <div class="we-row">
-                            <label>地点正则(高级)</label>
-                            <input type="text" id="we-location-regex" placeholder="留空=使用默认解析" />
+                            <label>${t('ui.parser.locationRegex')}</label>
+                            <input type="text" id="we-location-regex" placeholder="${t('ui.parser.locationRegexPh')}" />
                         </div>
                         <div class="we-row">
-                            <button class="we-btn" id="we-auto-detect">🔎 从最新AI消息自动检测</button>
+                            <button class="we-btn" id="we-auto-detect">${t('ui.parser.autoDetect')}</button>
                         </div>
-                        <div class="we-hint">自动检测会扫描最新一条AI消息，提取标签名、时间Key、地点Key。</div>
+                        <div class="we-hint">${t('ui.parser.autoDetectHint')}</div>
                     </div>
                 </div>
 
                 <div class="we-section">
                     <div class="we-section-header collapsed" data-section="calendar">
-                        <span>📅 日历与纪念日</span>
+                        <span>${t('ui.sections.calendar')}</span>
                         <span class="we-toggle-icon">▼</span>
                     </div>
                     <div class="we-section-body hidden" data-section="calendar">
                         <div class="we-row">
-                            <label>启用日历注入</label>
+                            <label>${t('ui.calendar.enable')}</label>
                             <input type="checkbox" id="we-calendar-enabled" />
                         </div>
                         <div class="we-row">
-                            <label>启用纪念日</label>
+                            <label>${t('ui.calendar.eventsEnable')}</label>
                             <input type="checkbox" id="we-events-enabled" />
                         </div>
                         <div class="we-event-list" id="we-event-list"></div>
                         <div class="we-row">
-                            <input type="text" id="we-event-name" placeholder="名称（如：生日）" style="flex:1" />
-                            <input type="text" id="we-event-date" placeholder="MM-DD 或 YYYY-MM-DD" style="width:150px" />
+                            <input type="text" id="we-event-name" placeholder="${t('ui.calendar.eventNamePh')}" style="flex:1" />
+                            <input type="text" id="we-event-date" placeholder="${t('ui.calendar.eventDatePh')}" style="width:150px" />
                             <select id="we-event-type" style="width:80px">
-                                <option value="birthday">生日</option>
-                                <option value="anniversary">纪念日</option>
-                                <option value="custom">自定义</option>
+                                <option value="birthday">${t('ui.calendar.eventTypeBirthday')}</option>
+                                <option value="anniversary">${t('ui.calendar.eventTypeAnniversary')}</option>
+                                <option value="custom">${t('ui.calendar.eventTypeCustom')}</option>
                             </select>
-                            <button class="we-btn" id="we-add-event">+添加</button>
+                            <button class="we-btn" id="we-add-event">${t('ui.calendar.addEvent')}</button>
                         </div>
                         <div class="we-row">
-                            <input type="text" id="we-event-char-filter" placeholder="搜索角色..." style="flex:1" />
-                            <button class="we-btn" id="we-event-char-select-all">全选</button>
-                            <button class="we-btn" id="we-event-char-clear">清空</button>
+                            <input type="text" id="we-event-char-filter" placeholder="${t('ui.calendar.charFilterPh')}" style="flex:1" />
+                            <button class="we-btn" id="we-event-char-select-all">${t('ui.calendar.selectAll')}</button>
+                            <button class="we-btn" id="we-event-char-clear">${t('ui.calendar.clear')}</button>
                         </div>
                         <div class="we-row">
                             <select id="we-event-char" multiple class="we-event-char-select"></select>
                         </div>
-                        <div class="we-hint">可多选角色卡，留空表示所有聊天都注入。</div>
+                        <div class="we-hint">${t('ui.calendar.charHint')}</div>
                     </div>
                 </div>
 
                 <div class="we-section">
                     <div class="we-section-header collapsed" data-section="weather">
-                        <span>🌤 天气系统</span>
+                        <span>${t('ui.sections.weather')}</span>
                         <span class="we-toggle-icon">▼</span>
                     </div>
                     <div class="we-section-body hidden" data-section="weather">
                         <div class="we-row">
-                            <label>启用天气</label>
+                            <label>${t('ui.weather.enable')}</label>
                             <input type="checkbox" id="we-weather-enabled" />
                         </div>
                         <div class="we-row">
-                            <label>默认城市</label>
-                            <input type="text" id="we-default-city" placeholder="未解析到地点时使用" />
+                            <label>${t('ui.weather.defaultCity')}</label>
+                            <input type="text" id="we-default-city" placeholder="${t('ui.weather.defaultCityPh')}" />
                         </div>
                         <div class="we-row">
-                            <label>古地名映射</label>
-                            <input type="text" id="we-ancient-from" placeholder="古地名 如 长安" style="flex:1" />
-                            <input type="text" id="we-ancient-to" placeholder="现代地名 如 西安" style="flex:1" />
-                            <button class="we-btn" id="we-add-ancient-map">+添加</button>
+                            <label>${t('ui.weather.ancientMapLabel')}</label>
+                            <input type="text" id="we-ancient-from" placeholder="${t('ui.weather.ancientFromPh')}" style="flex:1" />
+                            <input type="text" id="we-ancient-to" placeholder="${t('ui.weather.ancientToPh')}" style="flex:1" />
+                            <button class="we-btn" id="we-add-ancient-map">${t('ui.weather.addMap')}</button>
                         </div>
                         <div class="we-event-list" id="we-ancient-map-list"></div>
                         <div class="we-row">
-                            <label>连续性概率</label>
-                            <input type="text" id="we-weather-continuity" placeholder="0-100" />
+                            <label>${t('ui.weather.continuity')}</label>
+                            <input type="text" id="we-weather-continuity" placeholder="${t('ui.weather.continuityPh')}" />
                         </div>
                         <div class="we-row">
-                            <label>温度抖动(℃)</label>
-                            <input type="text" id="we-weather-jitter" placeholder="如 2" />
+                            <label>${t('ui.weather.jitter')}</label>
+                            <input type="text" id="we-weather-jitter" placeholder="${t('ui.weather.jitterPh')}" />
                         </div>
                         <div class="we-row">
-                            <label>雨天偏向(%)</label>
-                            <input type="text" id="we-weather-rain-bias" placeholder="如 20" />
+                            <label>${t('ui.weather.rainBias')}</label>
+                            <input type="text" id="we-weather-rain-bias" placeholder="${t('ui.weather.rainBiasPh')}" />
                         </div>
                         <div class="we-row">
-                            <button class="we-btn" id="we-reroll-weather">🎲 重新Roll天气</button>
+                            <button class="we-btn" id="we-reroll-weather">${t('ui.weather.reroll')}</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="we-section">
                     <div class="we-section-header collapsed" data-section="cycle">
-                        <span>🩸 生理周期</span>
+                        <span>${t('ui.sections.cycle')}</span>
                         <span class="we-toggle-icon">▼</span>
                     </div>
                     <div class="we-section-body hidden" data-section="cycle">
                         <div class="we-row">
-                            <label>启用生理周期</label>
+                            <label>${t('ui.cycle.enable')}</label>
                             <input type="checkbox" id="we-cycle-enabled" />
                         </div>
-                        <div class="we-hint">自动扫描角色/User设定中的性别关键词，为女性角色生成经期周期。</div>
+                        <div class="we-hint">${t('ui.cycle.hint')}</div>
                         <div id="we-gender-list"></div>
-                        <div class="we-hint" style="margin-top:6px;">手动添加角色（适用于世界观/多角色卡）</div>
+                        <div class="we-hint" style="margin-top:6px;">${t('ui.cycle.manualHint')}</div>
                         <div class="we-row">
-                            <input type="text" id="we-manual-name" placeholder="角色名" style="flex:1" />
+                            <input type="text" id="we-manual-name" placeholder="${t('ui.cycle.manualNamePh')}" style="flex:1" />
                             <select id="we-manual-gender" style="width:90px;">
-                                <option value="female">女</option>
-                                <option value="male">男</option>
-                                <option value="unknown">未知</option>
+                                <option value="female">${t('common.genderFemale')}</option>
+                                <option value="male">${t('common.genderMale')}</option>
+                                <option value="unknown">${t('common.genderUnknown')}</option>
                             </select>
-                            <input type="text" id="we-manual-age" placeholder="年龄" style="width:70px;" />
-                            <button class="we-btn" id="we-add-manual">+添加</button>
+                            <input type="text" id="we-manual-age" placeholder="${t('ui.cycle.manualAgePh')}" style="width:70px;" />
+                            <button class="we-btn" id="we-add-manual">${t('ui.cycle.manualAdd')}</button>
                         </div>
-                        <div class="we-hint">年龄<12 或 ≥55 将不启用经期模拟。</div>
+                        <div class="we-hint">${t('ui.cycle.manualAgeHint')}</div>
                         <div id="we-manual-list"></div>
                         <div id="we-cycle-list"></div>
                         <div class="we-row">
-                            <button class="we-btn" id="we-rescan-cycle">🔄 重新扫描角色</button>
+                            <button class="we-btn" id="we-rescan-cycle">${t('ui.cycle.rescan')}</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="we-section">
                     <div class="we-section-header collapsed" data-section="actions">
-                        <span>🛠 操作</span>
+                        <span>${t('ui.sections.actions')}</span>
                         <span class="we-toggle-icon">▼</span>
                     </div>
                     <div class="we-section-body hidden" data-section="actions">
                         <div class="we-row">
-                            <button class="we-btn" id="we-reinit-latest">📡 从最新AI重新初始化</button>
-                            <button class="we-btn" id="we-scan-all">📜 从头扫描所有历史</button>
+                            <button class="we-btn" id="we-reinit-latest">${t('ui.actions.reinit')}</button>
+                            <button class="we-btn" id="we-scan-all">${t('ui.actions.scanAll')}</button>
                         </div>
                         <div class="we-row">
-                            <button class="we-btn" id="we-test-weather">🌦 测试Open-Meteo</button>
-                            <button class="we-btn" id="we-test-calendar">📅 测试节假日API</button>
+                            <button class="we-btn" id="we-test-weather">${t('ui.actions.testWeather')}</button>
+                            <button class="we-btn" id="we-test-calendar">${t('ui.actions.testCalendar')}</button>
                         </div>
                         <div class="we-row">
-                            <button class="we-btn" id="we-diagnose">🧪 一键诊断并复制</button>
+                            <button class="we-btn" id="we-diagnose">${t('ui.actions.diagnose')}</button>
                         </div>
                         <div class="we-row">
-                            <button class="we-btn we-btn-danger" id="we-reset-state">🗑 清除当前对话的世界状态</button>
+                            <button class="we-btn we-btn-danger" id="we-reset-state">${t('ui.actions.reset')}</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="we-section">
                     <div class="we-section-header" data-section="status">
-                        <span>📊 当前状态</span>
+                        <span>${t('ui.sections.status')}</span>
                         <span class="we-toggle-icon">▼</span>
                     </div>
                     <div class="we-section-body" data-section="status">
-                        <div class="we-status-box" id="we-status-display">等待初始化...</div>
+                        <div class="we-status-box" id="we-status-display">${t('ui.status.waiting')}</div>
                         <div class="we-row" style="margin-top:6px;">
-                            <button class="we-btn" id="we-preview-prompt">👁 预览注入提示词</button>
+                            <button class="we-btn" id="we-preview-prompt">${t('ui.status.preview')}</button>
                         </div>
                         <div class="we-status-box hidden" id="we-prompt-preview"></div>
                     </div>
@@ -597,6 +606,14 @@ function bindSettingsEvents() {
         const body = $(`.we-section-body[data-section="${section}"]`);
         body.toggleClass('hidden');
         $(this).toggleClass('collapsed');
+    });
+
+    $('#we-ui-lang').on('change', function () {
+        getSettings().uiLanguage = this.value;
+        saveState();
+        $('#we-settings-panel').remove();
+        panelMounted = false;
+        location.reload();
     });
 
     $('#we-enabled').on('change', function () {
@@ -629,9 +646,9 @@ function bindSettingsEvents() {
                 saveState();
                 refreshStatusDisplay();
                 updateInjection();
-                toastr.success(`起始时间已设为 ${parsed.iso}`, '天气与日历小助手');
+                toastr.success(t('toast.timeSet', { time: parsed.iso }), t('app.name'));
             } else {
-                toastr.error('时间格式无法解析', '天气与日历小助手');
+                toastr.error(t('toast.timeInvalid'), t('app.name'));
             }
         }
         saveState();
@@ -703,11 +720,11 @@ function bindSettingsEvents() {
         }
 
         if (!preset) {
-            preset = { id: Date.now().toString(36), name: nameInput || `预设${presets.length + 1}` };
+            preset = { id: Date.now().toString(36), name: nameInput || `Preset${presets.length + 1}` };
             presets.push(preset);
         }
 
-        preset.name = nameInput || preset.name || `预设${presets.length}`;
+        preset.name = nameInput || preset.name || `Preset${presets.length}`;
         preset.timeRegex = timeRegex;
         preset.locationRegex = locationRegex;
 
@@ -717,13 +734,13 @@ function bindSettingsEvents() {
         renderRegexPresetOptions();
         $('#we-regex-preset').val(preset.id);
         $('#we-regex-preset-name').val('');
-        toastr.success('正则预设已保存', '天气与日历小助手');
+        toastr.success(t('toast.presetSaved'), t('app.name'));
     });
     $('#we-regex-preset-delete').on('click', function () {
         const settings = getSettings();
         const id = $('#we-regex-preset').val();
         if (!id) {
-            toastr.warning('没有可删除的预设', '天气与日历小助手');
+            toastr.warning(t('toast.presetNoDelete'), t('app.name'));
             return;
         }
 
@@ -732,13 +749,13 @@ function bindSettingsEvents() {
         saveState();
         renderRegexPresetOptions();
         $('#we-regex-preset-name').val('');
-        toastr.success('已删除预设', '天气与日历小助手');
+        toastr.success(t('toast.presetDeleted'), t('app.name'));
     });
 
     $('#we-auto-detect').on('click', function () {
         const context = SillyTavern.getContext();
         if (!context.chat || context.chat.length === 0) {
-            toastr.warning('当前没有聊天记录', '天气与日历小助手');
+            toastr.warning(t('toast.noChat'), t('app.name'));
             return;
         }
         let found = false;
@@ -761,13 +778,17 @@ function bindSettingsEvents() {
                     $('#we-location-key').val(detected.locationKey);
                 }
                 saveState();
-                toastr.success(`检测到标签: ${detected.tagWrapper || '无'}, 时间Key: ${detected.timeKey || '无'}, 地点Key: ${detected.locationKey || '无'}`, '天气与日历小助手', { timeOut: 5000 });
+                toastr.success(t('toast.detectSuccess', {
+                    tag: detected.tagWrapper || t('common.none'),
+                    timeKey: detected.timeKey || t('common.none'),
+                    locationKey: detected.locationKey || t('common.none')
+                }), t('app.name'), { timeOut: 5000 });
                 found = true;
                 break;
             }
         }
         if (!found) {
-            toastr.warning('未能从AI消息中自动检测到字段格式', '天气与日历小助手');
+            toastr.warning(t('toast.detectFail'), t('app.name'));
         }
     });
 
@@ -789,7 +810,7 @@ function bindSettingsEvents() {
         const characterIds = $('#we-event-char').val() || [];
 
         if (!name || !dateRaw) {
-            toastr.warning('名称和日期不能为空', '天气与日历小助手');
+            toastr.warning(t('toast.eventNeedNameDate'), t('app.name'));
             return;
         }
 
@@ -801,7 +822,7 @@ function bindSettingsEvents() {
             year = dateRaw.slice(0, 4);
             monthDay = dateRaw.slice(5);
         } else {
-            toastr.warning('日期格式应为 MM-DD 或 YYYY-MM-DD', '天气与日历小助手');
+            toastr.warning(t('toast.eventDateFormat'), t('app.name'));
             return;
         }
 
@@ -819,7 +840,7 @@ function bindSettingsEvents() {
         $('#we-event-name').val('');
         $('#we-event-date').val('');
         $('#we-event-char').val([]);
-        toastr.success('纪念日已添加', '天气与日历小助手');
+        toastr.success(t('toast.eventAdded'), t('app.name'));
         updateInjection();
     });
 
@@ -854,7 +875,7 @@ function bindSettingsEvents() {
         const from = $('#we-ancient-from').val().trim();
         const to = $('#we-ancient-to').val().trim();
         if (!from || !to) {
-            toastr.warning('古地名和现代地名不能为空', '天气与日历小助手');
+            toastr.warning(t('toast.mapNeedBoth'), t('app.name'));
             return;
         }
         const settings = getSettings();
@@ -902,14 +923,14 @@ function bindSettingsEvents() {
     $('#we-reroll-weather').on('click', async function () {
         const cs = getChatState();
         if (!cs.currentTime) {
-            toastr.warning('尚无世界时间', '天气与日历小助手');
+            toastr.warning(t('toast.noWorldTime'), t('app.name'));
             return;
         }
         cs.weatherState = await getWeatherForDate(cs.currentTime.split('T')[0], cs.currentLocation, getSettings(), cs.weatherState);
         saveState();
         refreshStatusDisplay();
         updateInjection();
-        toastr.success(`天气已更新: ${cs.weatherState.cn}`, '天气与日历小助手');
+        toastr.success(t('toast.weatherUpdated', { weather: cs.weatherState.cn }), t('app.name'));
     });
 
     $('#we-cycle-enabled').on('change', function () {
@@ -925,13 +946,13 @@ function bindSettingsEvents() {
         let age = null;
 
         if (!name) {
-            toastr.warning('角色名不能为空', '天气与日历小助手');
+            toastr.warning(t('toast.manualNeedName'), t('app.name'));
             return;
         }
         if (ageRaw) {
             const n = parseInt(ageRaw);
             if (isNaN(n) || n <= 0) {
-                toastr.warning('年龄需要是正整数', '天气与日历小助手');
+                toastr.warning(t('toast.ageInvalid'), t('app.name'));
                 return;
             }
             age = n;
@@ -950,7 +971,7 @@ function bindSettingsEvents() {
         renderManualList();
         $('#we-manual-name').val('');
         $('#we-manual-age').val('');
-        toastr.success('已添加/更新角色', '天气与日历小助手');
+        toastr.success(t('toast.manualAdded'), t('app.name'));
         if (getChatState().currentTime) {
             updateCycleStates(getChatState().currentTime.split('T')[0]);
             refreshStatusDisplay();
@@ -961,7 +982,7 @@ function bindSettingsEvents() {
     $('#we-rescan-cycle').on('click', function () {
         const cs = getChatState();
         if (!cs.currentTime) {
-            toastr.warning('尚无世界时间', '天气与日历小助手');
+            toastr.warning(t('toast.noWorldTime'), t('app.name'));
             return;
         }
         cs.cycleStates = {};
@@ -969,7 +990,7 @@ function bindSettingsEvents() {
         saveState();
         refreshStatusDisplay();
         updateInjection();
-        toastr.success('已重新扫描角色生理状态', '天气与日历小助手');
+        toastr.success(t('toast.rescanDone'), t('app.name'));
     });
 
     $('#we-reinit-latest').on('click', async function () {
@@ -984,9 +1005,9 @@ function bindSettingsEvents() {
         refreshStatusDisplay();
         await updateInjection();
         if (cs.currentTime) {
-            toastr.success(`从最新AI初始化成功: ${cs.currentTime}`, '天气与日历小助手');
+            toastr.success(t('toast.initSuccess', { time: cs.currentTime }), t('app.name'));
         } else {
-            toastr.warning('未找到可解析的AI消息', '天气与日历小助手');
+            toastr.warning(t('toast.initFail'), t('app.name'));
         }
     });
 
@@ -1031,7 +1052,7 @@ function bindSettingsEvents() {
         saveState();
         refreshStatusDisplay();
         await updateInjection();
-        toastr.success(`扫描完毕，共解析 ${count} 条时间记录`, '天气与日历小助手');
+        toastr.success(t('toast.scanDone', { count }), t('app.name'));
     });
 
     $('#we-test-weather').on('click', async function () {
@@ -1039,19 +1060,19 @@ function bindSettingsEvents() {
         const cs = getChatState();
         const location = (cs.currentLocation || settings.defaultCity || '').trim();
         if (!location) {
-            toastr.warning('请先设置默认城市或让AI解析地点', '天气与日历小助手');
+            toastr.warning(t('toast.needCity'), t('app.name'));
             return;
         }
         const dateStr = cs.currentTime ? cs.currentTime.split('T')[0] : formatDate(new Date());
         try {
             const w = await getWeatherForDate(dateStr, location, settings, null);
             if (w && w.cn) {
-                toastr.success(`Open-Meteo 正常：${w.cn} ${w.temp}°C`, '天气与日历小助手');
+                toastr.success(t('toast.weatherOk', { weather: w.cn, temp: w.temp }), t('app.name'));
             } else {
-                toastr.error('Open-Meteo 返回异常，请检查网络/城市名', '天气与日历小助手');
+                toastr.error(t('toast.weatherBad'), t('app.name'));
             }
         } catch (e) {
-            toastr.error('Open-Meteo 调用失败，请检查网络', '天气与日历小助手');
+            toastr.error(t('toast.weatherFail'), t('app.name'));
         }
     });
 
@@ -1060,10 +1081,10 @@ function bindSettingsEvents() {
         const dateStr = formatDate(new Date());
         try {
             const info = await getHolidayInfo(dateStr, settings.countryCode);
-            const name = info.holidayLocalName || info.holidayName || '无';
-            toastr.success(`日历API正常：${dateStr} ${info.dayType}，节日：${name}`, '天气与日历小助手');
+            const name = info.holidayLocalName || info.holidayName || t('common.none');
+            toastr.success(t('toast.calendarOk', { date: dateStr, type: info.dayType, name }), t('app.name'));
         } catch (e) {
-            toastr.error('日历API调用失败，请检查网络', '天气与日历小助手');
+            toastr.error(t('toast.calendarFail'), t('app.name'));
         }
     });
 
@@ -1074,29 +1095,29 @@ function bindSettingsEvents() {
                 updateDiagnosticModal(modal, percent, msg);
             });
             await copyToClipboard(text);
-            updateDiagnosticModal(modal, 100, '完成，已复制到剪贴板');
+            updateDiagnosticModal(modal, 100, t('common.doneCopied'));
             modal.find('.we-diagnose-result').text(text);
         } catch (e) {
-            updateDiagnosticModal(modal, 100, `诊断失败: ${e?.message || e}`);
+            updateDiagnosticModal(modal, 100, t('common.diagFailed', { err: e?.message || e }));
             modal.find('.we-diagnose-result').text(String(e));
         }
     });
 
     $('#we-reset-state').on('click', async function () {
-        if (!confirm('确定要清除当前对话的所有世界状态吗？')) return;
+        if (!confirm(t('toast.resetConfirm'))) return;
         const context = SillyTavern.getContext();
         context.chatMetadata.worldEngine = null;
         getChatState();
         context.setExtensionPrompt('worldEngine', '', 1, 0);
         saveState();
         refreshStatusDisplay();
-        toastr.info('世界状态已清除', '天气与日历小助手');
+        toastr.info(t('toast.resetDone'), t('app.name'));
     });
 
     $('#we-preview-prompt').on('click', async function () {
         const prompt = await buildInjectionPrompt();
         const box = $('#we-prompt-preview');
-        box.text(prompt || '（无注入内容）');
+        box.text(prompt || t('ui.status.noPrompt'));
         box.toggleClass('hidden');
     });
 
@@ -1124,7 +1145,7 @@ function bindSettingsEvents() {
         } else {
             const age = parseInt(val);
             if (isNaN(age) || age <= 0) {
-                toastr.warning('年龄需要是正整数', '天气与日历小助手');
+                toastr.warning(t('toast.ageInvalid'), t('app.name'));
                 $(this).val(settings.ageOverrides?.[name] || '');
                 return;
             }
@@ -1170,6 +1191,7 @@ function updateWorldTagUI() {
 
 function loadSettingsToUI() {
     const s = getSettings();
+    $('#we-ui-lang').val(s.uiLanguage || 'auto');
     $('#we-enabled').prop('checked', s.enabled);
     $('#we-country').val(s.countryCode);
     $('#we-world-era').val(s.worldEra || 'modern');
@@ -1205,6 +1227,11 @@ function renderEventList() {
     const container = $('#we-event-list');
     container.empty();
 
+    if (!settings.events || settings.events.length === 0) {
+        container.append(`<div class="we-hint">${t('calendar.noEvent')}</div>`);
+        return;
+    }
+
     for (const ev of settings.events) {
         const emoji = ev.type === 'birthday' ? '🎂' : ev.type === 'anniversary' ? '💝' : '📌';
         const yearLabel = ev.year ? `${ev.year}-` : '';
@@ -1212,9 +1239,9 @@ function renderEventList() {
 
         if (Array.isArray(ev.characterIds) && ev.characterIds.length > 0) {
             const names = ev.characterIds.map(id => getCharacterNameById(id)).filter(Boolean);
-            if (names.length > 0) bindLabel = `（${names.join('、')}）`;
+            if (names.length > 0) bindLabel = `${t('common.bracketL')}${joinList(names)}${t('common.bracketR')}`;
         } else if (ev.character) {
-            bindLabel = `（${ev.character}）`;
+            bindLabel = `${t('common.bracketL')}${ev.character}${t('common.bracketR')}`;
         }
 
         const item = $(`<div class="we-event-item">
@@ -1241,7 +1268,7 @@ function renderRegexPresetOptions() {
 
     const presets = Array.isArray(settings.regexPresets) ? settings.regexPresets : [];
     if (presets.length === 0) {
-        select.append('<option value="">（无预设）</option>');
+        select.append(`<option value="">${t('common.noPreset')}</option>`);
         select.prop('disabled', true);
         delBtn.prop('disabled', true);
         settings.regexPresetLastId = '';
@@ -1269,12 +1296,12 @@ function getRegexPresetById(id) {
 
 function applyRegexPreset(preset) {
     const settings = getSettings();
-    const t = preset.timeRegex || '';
-    const l = preset.locationRegex || '';
-    settings.timeRegexCustom = t;
-    settings.locationRegexCustom = l;
-    $('#we-time-regex').val(t);
-    $('#we-location-regex').val(l);
+    const tval = preset.timeRegex || '';
+    const lval = preset.locationRegex || '';
+    settings.timeRegexCustom = tval;
+    settings.locationRegexCustom = lval;
+    $('#we-time-regex').val(tval);
+    $('#we-location-regex').val(lval);
     saveState();
 }
 
@@ -1289,7 +1316,7 @@ function renderEventCharacterOptions() {
     const context = SillyTavern.getContext();
     const chars = context.characters || [];
     if (chars.length === 0) {
-        select.append('<option value="">（无角色卡）</option>');
+        select.append(`<option value="">${t('calendar.noCard')}</option>`);
         select.prop('disabled', true);
         filter.prop('disabled', true);
         btnAll.prop('disabled', true);
@@ -1334,7 +1361,7 @@ function renderAncientMapList() {
 
     const list = Array.isArray(settings.ancientLocationMap) ? settings.ancientLocationMap : [];
     if (list.length === 0) {
-        container.append('<div class="we-hint">尚未添加古地名映射。</div>');
+        container.append(`<div class="we-hint">${t('calendar.noMap')}</div>`);
         return;
     }
 
@@ -1361,7 +1388,7 @@ function renderGenderOverrideList() {
     if (context.name1) checks.push({ name: context.name1, text: userDescription });
 
     if (checks.length === 0) {
-        container.append('<div class="we-hint">未检测到角色/用户信息。</div>');
+        container.append(`<div class="we-hint">${t('calendar.noChar')}</div>`);
         return;
     }
 
@@ -1369,17 +1396,19 @@ function renderGenderOverrideList() {
         const info = detectGenderInfo(text);
         const override = settings.genderOverrides?.[name] || 'auto';
         const ageVal = settings.ageOverrides?.[name] ?? '';
+        const genderLabel = getGenderLabel(info.gender);
+        const detectText = t('ui.cycle.autoDetectInfo', { gender: genderLabel, female: info.femaleCount, male: info.maleCount });
         const line = $(`
             <div class="we-row" style="margin-bottom:4px;">
                 <label>${name}</label>
-                <span style="font-size:12px;">自动识别：${info.gender} (女${info.femaleCount}/男${info.maleCount})</span>
+                <span style="font-size:12px;">${detectText}</span>
                 <select class="we-gender-select" data-name="${name}" style="width:100px;">
-                    <option value="auto">自动</option>
-                    <option value="female">女</option>
-                    <option value="male">男</option>
-                    <option value="unknown">未知</option>
+                    <option value="auto">${t('common.genderAuto')}</option>
+                    <option value="female">${t('common.genderFemale')}</option>
+                    <option value="male">${t('common.genderMale')}</option>
+                    <option value="unknown">${t('common.genderUnknown')}</option>
                 </select>
-                <input type="text" class="we-age-input" data-name="${name}" placeholder="年龄" style="width:70px;" />
+                <input type="text" class="we-age-input" data-name="${name}" placeholder="${t('common.ageLabel')}" style="width:70px;" />
             </div>
         `);
         line.find('select').val(override);
@@ -1394,14 +1423,14 @@ function renderManualList() {
     container.empty();
 
     if (!settings.manualCharacters || settings.manualCharacters.length === 0) {
-        container.append('<div class="we-hint">尚未手动添加角色。</div>');
+        container.append(`<div class="we-hint">${t('calendar.noManual')}</div>`);
         return;
     }
 
     for (const item of settings.manualCharacters) {
-        const ageText = item.age ? `，${item.age}岁` : '';
+        const ageText = item.age ? t('common.ageText', { age: item.age }) : '';
         const line = $(`<div class="we-row" style="margin-bottom:4px;">
-            <span style="font-size:12px;">${item.name}（${item.gender}${ageText}）</span>
+            <span style="font-size:12px;">${item.name}${t('common.bracketL')}${getGenderLabel(item.gender)}${ageText}${t('common.bracketR')}</span>
             <button class="we-btn we-btn-danger we-del-manual" data-name="${item.name}" style="margin-left:auto;">✕</button>
         </div>`);
         container.append(line);
@@ -1414,7 +1443,7 @@ function renderCycleList() {
     container.empty();
 
     if (!cs.currentTime) {
-        container.append('<div class="we-hint">尚无世界时间，无法显示生理周期。</div>');
+        container.append(`<div class="we-hint">${t('calendar.noCycleTime')}</div>`);
         return;
     }
 
@@ -1422,13 +1451,15 @@ function renderCycleList() {
 
     for (const [name, data] of Object.entries(cs.cycleStates)) {
         const status = getCycleStatus(data, dateStr);
-        const ageText = data.age ? `，年龄${data.age}` : '';
-        const text = status ? `${name}: ${status.description} (周期${data.cycleLength}天, 经期${data.periodDuration}天${ageText})` : `${name}: 数据异常`;
+        const agePart = data.age ? t('common.cycleAge', { age: data.age }) : '';
+        const text = status
+            ? t('common.cycleLine', { name, desc: status.description, cycle: data.cycleLength, period: data.periodDuration, age: agePart })
+            : `${name}: ${t('common.cycleError')}`;
         container.append(`<div class="we-hint" style="margin:3px 0;">🩸 ${text}</div>`);
     }
 
     if (Object.keys(cs.cycleStates).length === 0) {
-        container.append('<div class="we-hint">未检测到女性角色或周期系统未初始化。</div>');
+        container.append(`<div class="we-hint">${t('calendar.noCycle')}</div>`);
     }
 }
 
@@ -1438,23 +1469,24 @@ function refreshStatusDisplay() {
     let lines = [];
 
     if (!settings.enabled) {
-        lines.push('❌ 插件已禁用');
+        lines.push(t('status.disabled'));
     } else if (!cs.currentTime) {
-        lines.push('⏳ 尚未初始化世界时间');
-        lines.push('发送消息后将自动从AI回复中解析。');
+        lines.push(t('status.noTime'));
+        lines.push(t('status.noTimeHint'));
     } else {
-        lines.push(`🕐 世界时间: ${cs.currentTime}`);
-        if (cs.currentLocation) lines.push(`🏙 地点: ${cs.currentLocation}`);
+        lines.push(t('status.time', { time: cs.currentTime }));
+        if (cs.currentLocation) lines.push(t('status.location', { location: cs.currentLocation }));
         if (cs.weatherState) {
             const src = cs.weatherState.source ? `(${cs.weatherState.source})` : '';
-            lines.push(`🌤 天气: ${cs.weatherState.cn} ${cs.weatherState.temp}°C ${src}${cs.weatherState.extreme ? ' ⚠极端' : ''}`);
+            const extreme = cs.weatherState.extreme ? t('common.extreme') : '';
+            lines.push(t('status.weather', { weather: cs.weatherState.cn, temp: cs.weatherState.temp, src, extreme }));
         }
-        lines.push(`🌐 地区: ${settings.countryCode}`);
-        lines.push(`🧭 时代: ${settings.worldEra === 'ancient' ? '古代' : '现代'}`);
-        lines.push(`📦 快照数: ${Object.keys(cs.snapshots).length}`);
+        lines.push(t('status.region', { region: settings.countryCode }));
+        lines.push(t('status.era', { era: settings.worldEra === 'ancient' ? t('ui.general.ancient') : t('ui.general.modern') }));
+        lines.push(t('status.snapshots', { count: Object.keys(cs.snapshots).length }));
 
         const cycleCount = Object.keys(cs.cycleStates).length;
-        if (cycleCount > 0) lines.push(`🩸 生理周期追踪: ${cycleCount}个角色`);
+        if (cycleCount > 0) lines.push(t('status.cycle', { count: cycleCount }));
     }
 
     $('#we-status-display').text(lines.join('\n'));
@@ -1475,70 +1507,70 @@ async function runDiagnostics(onProgress) {
         return new Promise(resolve => setTimeout(resolve, 80));
     };
 
-    await update(5, '收集基础信息...');
-    lines.push('==== WorldEngine 诊断报告 ====');
-    lines.push(`- 诊断时间: ${now.toISOString()}`);
-    lines.push(`- 插件版本: 1.3.0`);
+    await update(5, t('diag.progressBase'));
+    lines.push(t('diag.title'));
+    lines.push(t('diag.time', { time: now.toISOString() }));
+    lines.push(t('diag.version', { version: '1.3.0' }));
 
-    await update(15, '读取插件设置...');
-    lines.push('\n[⚙️ 插件设置]');
-    lines.push(`- 启用状态: ${settings.enabled ? '✅' : '❌'}`);
-    lines.push(`- 解析模式: ${settings.worldTagMode ? 'WORLD标签' : '字段/正则'}`);
-    lines.push(`- 国家/地区: ${settings.countryCode}`);
-    lines.push(`- 时代模式: ${settings.worldEra === 'ancient' ? '古代' : '现代'}`);
-    lines.push(`- 天气系统: ${settings.weatherEnabled ? '✅' : '❌'}`);
-    lines.push(`- 日历注入: ${settings.calendarEnabled ? '✅' : '❌'}`);
-    lines.push(`- 生理周期: ${settings.cycleEnabled ? '✅' : '❌'}`);
-    lines.push(`- 默认城市: ${settings.defaultCity || '未设置'}`);
-    lines.push(`- 网络状态: ${navigator.onLine ? '在线' : '离线'}`);
+    await update(15, t('diag.progressSettings'));
+    lines.push('\n' + t('diag.settings'));
+    lines.push(t('diag.enabled', { val: settings.enabled ? t('diag.ok') : t('diag.fail') }));
+    lines.push(t('diag.parseMode', { val: settings.worldTagMode ? t('common.parseModeWorldTag') : t('common.parseModeField') }));
+    lines.push(t('diag.country', { val: settings.countryCode }));
+    lines.push(t('diag.era', { val: settings.worldEra === 'ancient' ? t('ui.general.ancient') : t('ui.general.modern') }));
+    lines.push(t('diag.weather', { val: settings.weatherEnabled ? t('diag.ok') : t('diag.fail') }));
+    lines.push(t('diag.calendar', { val: settings.calendarEnabled ? t('diag.ok') : t('diag.fail') }));
+    lines.push(t('diag.cycle', { val: settings.cycleEnabled ? t('diag.ok') : t('diag.fail') }));
+    lines.push(t('diag.defaultCity', { val: settings.defaultCity || t('common.notSet') }));
+    lines.push(t('diag.network', { val: navigator.onLine ? t('diag.online') : t('diag.offline') }));
 
-    await update(30, '读取当前世界状态...');
-    lines.push('\n[🌍 当前世界状态]');
-    lines.push(`- 世界时间: ${cs.currentTime || '尚未初始化'}`);
-    lines.push(`- 当前地点: ${cs.currentLocation || '未知'}`);
+    await update(30, t('diag.progressState'));
+    lines.push('\n' + t('diag.state'));
+    lines.push(t('diag.stateTime', { val: cs.currentTime || t('common.notInit') }));
+    lines.push(t('diag.stateLoc', { val: cs.currentLocation || t('common.unknown') }));
     if (cs.weatherState) {
-        lines.push(`- 当前天气: ${cs.weatherState.cn} ${cs.weatherState.temp}°C (来源: ${cs.weatherState.source || '未知'})`);
+        lines.push(t('diag.stateWeather', { val: `${cs.weatherState.cn} ${cs.weatherState.temp}°C` }));
     } else {
-        lines.push('- 当前天气: 无');
+        lines.push(t('diag.stateWeather', { val: t('common.none') }));
     }
-    lines.push(`- 周期角色数: ${Object.keys(cs.cycleStates || {}).length}`);
-    lines.push(`- 快照数: ${Object.keys(cs.snapshots || {}).length}`);
+    lines.push(t('diag.stateCycle', { val: Object.keys(cs.cycleStates || {}).length }));
+    lines.push(t('diag.stateSnap', { val: Object.keys(cs.snapshots || {}).length }));
 
-    await update(50, '加载并测试日历API...');
-    lines.push('\n[📡 API & 服务测试]');
+    await update(50, t('diag.progressCalendar'));
+    lines.push('\n' + t('diag.api'));
     await loadChineseDays();
-    lines.push(`- chinese-days 库: ${window.chineseDays ? '已加载' : '加载失败'}`);
+    lines.push(t('diag.chineseDays', { val: window.chineseDays ? t('diag.ok') : t('diag.fail') }));
 
-    let calendarResult = '未测试';
+    let calendarResult = t('common.notTested');
     try {
         const info = await getHolidayInfo(dateStr, settings.countryCode);
-        calendarResult = `✅ 成功 (${info.dayType}, ${info.holidayLocalName || '无节日'})`;
+        calendarResult = `${t('diag.ok')} (${info.dayType}, ${info.holidayLocalName || t('common.none')})`;
     } catch (e) {
-        calendarResult = `❌ 失败 (${e?.message || e})`;
+        calendarResult = `${t('diag.fail')} (${e?.message || e})`;
     }
-    lines.push(`- 日历API (Nager): ${calendarResult}`);
+    lines.push(t('diag.calendarApi', { val: calendarResult }));
 
-    await update(75, '测试天气API...');
-    let weatherResult = '未测试';
+    await update(75, t('diag.progressWeather'));
+    let weatherResult = t('common.notTested');
     if (!settings.weatherEnabled) {
-        weatherResult = '已关闭';
+        weatherResult = t('common.disabled');
     } else {
         const loc = cs.currentLocation || settings.defaultCity;
         if (!loc) {
-            weatherResult = '🟡 跳过 (缺少地点/默认城市)';
+            weatherResult = t('common.skipNoLocation');
         } else {
             try {
                 const w = await getWeatherForDate(dateStr, loc, settings, null);
-                weatherResult = w ? `✅ 成功 (${w.cn} ${w.temp}°C)` : `❌ 失败 (无数据返回)`;
+                weatherResult = w ? `${t('diag.ok')} (${w.cn} ${w.temp}°C)` : `${t('diag.fail')} (${t('common.none')})`;
             } catch (e) {
-                weatherResult = `❌ 失败 (${e?.message || e})`;
+                weatherResult = `${t('diag.fail')} (${e?.message || e})`;
             }
         }
     }
-    lines.push(`- 天气API (Open-Meteo): ${weatherResult}`);
+    lines.push(t('diag.weatherApi', { val: weatherResult }));
 
-    await update(100, '报告生成完毕');
-    lines.push('\n==== 诊断结束 ====');
+    await update(100, t('diag.progressDone'));
+    lines.push('\n' + t('diag.end'));
     return lines.join('\n');
 }
 
@@ -1568,17 +1600,17 @@ function openDiagnosticModal() {
         <div id="we-diagnose-modal" class="we-modal">
             <div class="we-modal-content">
                 <div class="we-modal-header">
-                    <span>🧪 WorldEngine 诊断报告</span>
+                    <span>${t('app.diagnoseTitle')}</span>
                     <button class="we-modal-close">×</button>
                 </div>
                 <div class="we-modal-body">
                     <div class="we-diagnose-progress-area">
-                        <div class="we-progress-text">准备中...</div>
+                        <div class="we-progress-text">${t('common.preparing')}</div>
                         <div class="we-progress"><div class="we-progress-bar"></div></div>
                     </div>
                     <div class="we-diagnose-result-area">
                         <pre class="we-diagnose-result"></pre>
-                        <button class="we-diagnose-copy-btn">复制</button>
+                        <button class="we-diagnose-copy-btn">${t('common.copy')}</button>
                     </div>
                 </div>
             </div>
@@ -1594,14 +1626,14 @@ function openDiagnosticModal() {
             const btn = $(this);
             if (text) {
                 await copyToClipboard(text);
-                btn.text('已复制!');
-                setTimeout(() => btn.text('复制'), 1500);
+                btn.text(t('common.copied'));
+                setTimeout(() => btn.text(t('common.copy')), 1500);
             }
         });
     }
 
     modal.find('.we-diagnose-result').text('');
-    updateDiagnosticModal(modal, 0, '准备中...');
+    updateDiagnosticModal(modal, 0, t('common.preparing'));
     modal.removeClass('hidden').addClass('visible');
     return modal;
 }
@@ -1623,4 +1655,15 @@ function formatDate(d) {
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${dd}`;
+}
+
+function getGenderLabel(gender) {
+    if (gender === 'female') return t('common.genderFemale');
+    if (gender === 'male') return t('common.genderMale');
+    if (gender === 'unknown') return t('common.genderUnknown');
+    return t('common.genderUnknown');
+}
+
+function joinList(arr) {
+    return arr.join(t('common.listSep'));
 }
