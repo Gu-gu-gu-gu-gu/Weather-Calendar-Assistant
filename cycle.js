@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 const FEMALE_KEYWORDS = [
     '女', '少女', '女性', '女孩', '女人', '姐', '妹', '母', '妻', '嫁', '公主', '女王',
     '皇后', '女仆', '侍女', '她的', '闺', '娘', '淑女', '小姐',
@@ -88,7 +90,7 @@ export function getCycleStatus(cycleData, currentDateStr) {
             phase: 'skipped',
             dayInCycle,
             onPeriod: false,
-            description: '本周期经期未至（偶发性跳过）',
+            description: t('cycle.skipped'),
         };
     }
 
@@ -98,26 +100,26 @@ export function getCycleStatus(cycleData, currentDateStr) {
         phase = 'menstruation';
         onPeriod = true;
         const dayNum = dayInCycle + 1;
-        description = `经期第${dayNum}天`;
-        if (dayNum <= 2) description += '，可能有明显腹痛和疲倦';
-        else if (dayNum <= 4) description += '，经量可能较多，精力下降';
-        else description += '，经期接近尾声，身体逐渐恢复';
+        description = t('cycle.menstruationDay', { day: dayNum });
+        if (dayNum <= 2) description += t('cycle.menstruationDetail1');
+        else if (dayNum <= 4) description += t('cycle.menstruationDetail2');
+        else description += t('cycle.menstruationDetail3');
     } else if (dayInCycle < periodLen + 7) {
         phase = 'follicular';
         onPeriod = false;
-        description = '卵泡期，精力和情绪逐渐回升';
+        description = t('cycle.follicular');
     } else if (dayInCycle < periodLen + 10) {
         phase = 'ovulation';
         onPeriod = false;
-        description = '排卵期，精力充沛，情绪较好';
+        description = t('cycle.ovulation');
     } else {
         phase = 'luteal';
         onPeriod = false;
         const daysToNext = effectiveCycleLen - dayInCycle;
         if (daysToNext <= 5) {
-            description = '经前期，可能出现情绪波动、胸胀、食欲变化（PMS）';
+            description = t('cycle.lutealPms');
         } else {
-            description = '黄体期，状态平稳';
+            description = t('cycle.luteal');
         }
     }
 
