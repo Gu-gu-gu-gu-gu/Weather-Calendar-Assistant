@@ -1,3 +1,5 @@
+import { t, getLocale } from './i18n.js';
+
 const WEATHER_TABLE = {
     spring: [
         { type: 'sunny', weight: 25, cn: '晴朗', en: 'Sunny', tempRange: [15, 25] },
@@ -341,119 +343,52 @@ export function getWeatherPrompt(weather, worldEra = 'modern') {
         const desc = getAncientWeatherText(weather.type);
         const tempWord = getAncientTempWord(weather.temp);
         let lines = [];
-        lines.push(`今之气候：${desc}，${tempWord}`);
+        lines.push(t('weather.ancientPrefix', { text: desc, tempWord }));
         if (weather.extreme) {
-            lines.push(`⚠ 天象凶险，恐有风灾雪祸，当慎行`);
+            lines.push(t('weather.ancientExtreme'));
         } else {
             const impacts = getAncientImpact(weather.type);
-            if (impacts) lines.push(`提示：${impacts}`);
+            if (impacts) lines.push(t('weather.ancientHint', { text: impacts }));
         }
         return lines.join('\n');
     }
 
     let lines = [];
-    lines.push(`当前天气：${weather.cn}（${weather.en}），气温约${weather.temp}°C`);
+    lines.push(t('weather.current', { cn: weather.cn, en: weather.en, temp: weather.temp }));
 
     if (weather.extreme) {
-        lines.push(`⚠ 极端天气警报！${weather.cn}可能严重影响角色出行与安全。`);
-        lines.push('可能出现：交通中断、停电、建筑受损等意外事件。角色应当做出合理的应对反应。');
+        lines.push(t('weather.extreme', { cn: weather.cn, en: weather.en }));
+        lines.push(t('weather.extremeHint'));
     } else {
         const impacts = getWeatherImpact(weather.type);
-        if (impacts) lines.push(`天气影响：${impacts}`);
+        if (impacts) lines.push(t('weather.impactPrefix', { text: impacts }));
     }
     return lines.join('\n');
 }
 
 function getAncientWeatherText(type) {
-    const map = {
-        light_rain: '微雨如丝',
-        moderate_rain: '细雨绵绵',
-        heavy_rain: '大雨倾盆',
-        shower: '骤雨时落',
-        thunderstorm: '雷电交作',
-        foggy: '雾气弥漫',
-        windy: '风势渐紧',
-        windy_cold: '朔风凛冽',
-        humid: '暑热潮闷',
-        sunny_hot: '烈日当空',
-        heatwave: '酷热难当',
-        light_snow: '小雪初降',
-        moderate_snow: '雪花纷飞',
-        heavy_snow: '大雪封途',
-        sleet: '雨雪交加',
-        frost: '霜露凝寒',
-        hail: '冰雹骤落',
-        typhoon: '狂风卷地',
-        blizzard: '风雪暴烈',
-        ice_storm: '冰雨如刀',
-        sunny: '晴朗无云',
-        cloudy: '云开半掩',
-        overcast: '天色阴沉',
-        partly_cloudy: '晴间多云',
-        sunny_cold: '天晴而寒',
-    };
-    return map[type] || '天气平常';
+    const map = getLocale().weather?.ancientText || {};
+    return map[type] || t('weather.ancientTextDefault');
 }
 
 function getAncientTempWord(temp) {
-    if (temp <= 0) return '寒气逼人';
-    if (temp <= 8) return '微寒';
-    if (temp <= 16) return '略凉';
-    if (temp <= 24) return '温润宜人';
-    if (temp <= 30) return '微热';
-    if (temp <= 36) return '暑气渐盛';
-    return '酷热难耐';
+    const tempMap = getLocale().weather?.ancientTemp || {};
+    if (temp <= 0) return tempMap.t0 || '';
+    if (temp <= 8) return tempMap.t8 || '';
+    if (temp <= 16) return tempMap.t16 || '';
+    if (temp <= 24) return tempMap.t24 || '';
+    if (temp <= 30) return tempMap.t30 || '';
+    if (temp <= 36) return tempMap.t36 || '';
+    return tempMap.t99 || '';
 }
 
 function getAncientImpact(type) {
-    const map = {
-        light_rain: '行路宜携伞，衣衫勿湿',
-        moderate_rain: '道路泥泞，舟车稍缓',
-        heavy_rain: '沟渠暴涨，宜避外行',
-        shower: '雨来忽至，宜备蓑笠',
-        thunderstorm: '雷鸣电闪，不可空旷久立',
-        foggy: '雾深路迷，行路须谨慎',
-        windy: '风劲尘起，行路需防坠物',
-        windy_cold: '寒风侵骨，当添衣',
-        humid: '暑湿相蒸，易汗劳',
-        sunny_hot: '烈日曝身，当避炎热',
-        heatwave: '酷暑难耐，少出为宜',
-        light_snow: '薄雪初覆，道路湿滑',
-        moderate_snow: '积雪渐厚，行路不便',
-        heavy_snow: '风雪封途，出行暂停',
-        sleet: '冰滑难行，当缓步',
-        frost: '晨寒地滑，注意防寒',
-        hail: '冰雹伤物，当避檐下',
-        typhoon: '狂风大作，闭户避风',
-        blizzard: '暴雪狂风，不可远行',
-        ice_storm: '冰雨骤急，树枝易折',
-    };
+    const map = getLocale().weather?.ancientImpact || {};
     return map[type] || '';
 }
 
 function getWeatherImpact(type) {
-    const map = {
-        light_rain: '可能需要撑伞，户外活动略受影响',
-        moderate_rain: '户外活动受限，路面湿滑',
-        heavy_rain: '不宜外出，注意防涝',
-        shower: '短时降雨，可能突然开始又突然停止',
-        thunderstorm: '电闪雷鸣，不宜在空旷处停留',
-        foggy: '能见度低，出行需小心',
-        windy: '大风天气，注意高空坠物',
-        windy_cold: '寒风凛冽，需要厚衣保暖',
-        humid: '空气闷热黏腻，容易出汗',
-        sunny_hot: '烈日当空，注意防晒和补水',
-        heatwave: '极端高温，尽量避免室外活动',
-        light_snow: '薄雪覆盖，路面可能结冰',
-        moderate_snow: '积雪较厚，出行困难',
-        heavy_snow: '大雪封路，交通瘫痪',
-        sleet: '雨雪交加，路面极度湿滑',
-        frost: '地面结霜，清晨寒冷',
-        hail: '冰雹来袭，注意躲避',
-        typhoon: '台风登陆，严禁外出',
-        blizzard: '暴风雪肆虐，所有出行暂停',
-        ice_storm: '冰暴危险，树枝和电线可能断裂',
-    };
+    const map = getLocale().weather?.impact || {};
     return map[type] || '';
 }
 
