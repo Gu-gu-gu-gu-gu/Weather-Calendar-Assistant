@@ -1,6 +1,7 @@
 # 🌤 天气与日历小助手（Weather-Calendar-Assistant）
 
 [![English](https://img.shields.io/badge/English-README-blue)](README.en.md)
+[![更新日志](https://img.shields.io/badge/更新日志-CHANGELOG-brightgreen)](https://github.com/Gu-gu-gu-gu-gu/Weather-Calendar-Assistant/blob/a32b197254ab89f6a317fca8abe5a970410601cf/CHANGELOG.md)
 
 一个面向 [SillyTavern](https://github.com/SillyTavern/SillyTavern) 的前端扩展插件，用于在角色扮演中自动追踪世界时间、节假日、天气与角色生理周期，并将“世界状态”注入提示词，帮助模型维持时间一致性与剧情连贯性。
 
