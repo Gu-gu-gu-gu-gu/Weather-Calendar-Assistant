@@ -1176,7 +1176,7 @@ function updateWorldTagUI() {
     $('#we-regex-preset-save').prop('disabled', disabled);
     $('#we-regex-preset-delete').prop('disabled', disabled);
     $('#we-auto-detect').prop('disabled', disabled);
-    $('#we-worldtag-prompt').prop('disabled', !enabled);
+    $('#we-worldtag-prompt').prop('disabled', false);
 }
 
 function loadSettingsToUI() {
