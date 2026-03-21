@@ -151,6 +151,13 @@ async function onMessageDeleted(messageId) {
     if (!settings.enabled) return;
 
     clearSnapshotsAfter(messageId - 1);
+
+    if (clearWorldStateIfNoUserMessages()) {
+        refreshStatusDisplay();
+        await updateInjection();
+        return;
+    }
+
     const prevId = findPreviousSnapshotId(messageId);
     if (prevId !== null) {
         restoreSnapshot(prevId);
@@ -166,9 +173,45 @@ async function onMessageSwiped(messageId) {
 
 async function onChatChanged() {
     loadSettingsToUI();
+
+    if (clearWorldStateIfNoUserMessages()) {
+        refreshStatusDisplay();
+        await updateInjection();
+        return;
+    }
+
     await tryInitFromLatest();
     refreshStatusDisplay();
     await updateInjection();
+}
+
+function resetWorldState() {
+    const cs = getChatState();
+    cs.currentTime = null;
+    cs.currentScene = '';
+    cs.currentLocation = '';
+    cs.snapshots = {};
+    cs.weatherState = null;
+    cs.cycleStates = {};
+    cs.lastParsedMessageId = -1;
+    cs.eraYearLabel = '';
+    cs.eraYearBase = null;
+    cs.eraYearBaseGregorian = null;
+    cs.randomBaseYear = null;
+
+    const context = SillyTavern.getContext();
+    context.setExtensionPrompt('worldEngine', '', 1, 0);
+    saveState();
+}
+
+function clearWorldStateIfNoUserMessages() {
+    const context = SillyTavern.getContext();
+    const hasUser = Array.isArray(context.chat) && context.chat.some(m => m.is_user);
+    if (!hasUser) {
+        resetWorldState();
+        return true;
+    }
+    return false;
 }
 
 async function tryInitFromLatest() {
