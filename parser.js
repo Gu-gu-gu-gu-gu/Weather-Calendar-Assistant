@@ -48,6 +48,9 @@ export function parseTimeValue(raw, baseDateStr = null) {
     res = parseDateWithMDY(s);
     if (res) return res;
 
+    res = parseEraDateWithYMD(s, baseDateStr);
+    if (res) return res;
+
     const lunarParsed = parseLunarTimeValue(s, baseDateStr);
     if (lunarParsed) return lunarParsed;
 
@@ -115,6 +118,31 @@ function parseDateWithMDY(s) {
 
     const { hour, minute, endHour, endMinute, crossDay } = parseClockFromString(s);
     return buildTimeResult(year, month, day, hour, minute, endHour, endMinute, crossDay);
+}
+
+function parseEraDateWithYMD(s, baseDateStr) {
+    const m = s.match(/([^\d\s]{1,12})([零一二三四五六七八九十百千元0-9]+)年\s*(\d{1,2})月\s*(\d{1,2})日/);
+    if (!m) return null;
+
+    const label = m[1].trim();
+    const yearNum = parseChineseNumber(m[2]);
+    const month = parseInt(m[3]);
+    const day = parseInt(m[4]);
+    if (!label || !yearNum || !month || !day) return null;
+
+    const cs = getChatState();
+    let baseYear = getBaseYear(baseDateStr);
+    if (!baseYear) baseYear = new Date().getFullYear();
+
+    let gregorianYear = baseYear;
+    if (cs.eraYearLabel && cs.eraYearBase && cs.eraYearBaseGregorian && cs.eraYearLabel === label) {
+        gregorianYear = cs.eraYearBaseGregorian + (yearNum - cs.eraYearBase);
+    } else {
+        gregorianYear = baseYear;
+    }
+
+    const { hour, minute, endHour, endMinute, crossDay } = parseClockFromString(s);
+    return buildTimeResult(gregorianYear, month, day, hour, minute, endHour, endMinute, crossDay);
 }
 
 function parseTimeOnly(s, baseDateStr) {
