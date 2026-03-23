@@ -202,7 +202,7 @@ export const EN = {
         snapshots: '📦 Snapshots: {count}',
         cycle: '🩸 Cycle tracking: {count} characters'
     },
-    diag: {
+        diag: {
         title: '==== WorldEngine Diagnostic Report ====',
         end: '==== End of Report ====',
         time: '- Time: {time}',
@@ -234,9 +234,28 @@ export const EN = {
         progressBase: 'Collecting basic info...',
         progressSettings: 'Reading settings...',
         progressState: 'Reading world state...',
+        progressParse: 'Parsing diagnostics...',
         progressCalendar: 'Loading & testing holiday API...',
         progressWeather: 'Testing weather API...',
-        progressDone: 'Report generated'
+        progressDone: 'Report generated',
+        parse: '[🔍 Parse Diagnostics]',
+        parseNoAi: '- No AI message found, cannot test parsing',
+        parseLatest: '- Latest AI message: #{id}',
+        parseSnippet: '- AI tail snippet: {text}',
+        parseWorldTag: '- WORLD tag: {val}',
+        parseTagWrapper: '- XML tag ({name}): {val}',
+        parseTimeRegex: '- Time regex hit: {val}',
+        parseLocationRegex: '- Location regex hit: {val}',
+        parseTimeKey: '- Time key hit: {val}',
+        parseLocationKey: '- Location key hit: {val}',
+        parseResultTime: '- Parsed time: {val}',
+        parseResultLoc: '- Parsed location: {val}',
+        parseReason: '- Parse conclusion: {val}',
+        parseReasonOk: 'OK',
+        parseReasonWorld: 'WORLD mode enabled but no WORLD tag found',
+        parseReasonTimeFail: 'Time text matched but failed to parse',
+        parseReasonNoTime: 'No time matched',
+        parseRegexError: 'Regex error: {err}'
     },
     prompt: {
         title: '[📅 World Engine - World State]',
