@@ -1527,6 +1527,135 @@ function refreshStatusDisplay() {
     renderCycleList();
 }
 
+function getLatestAiMessage() {
+    const context = SillyTavern.getContext();
+    if (!Array.isArray(context.chat) || context.chat.length === 0) return null;
+    for (let i = context.chat.length - 1; i >= 0; i--) {
+        const msg = context.chat[i];
+        if (msg && !msg.is_user) {
+            return { id: i, mes: msg.mes || '' };
+        }
+    }
+    return null;
+}
+
+function truncateForDiag(text, maxLen = 240) {
+    const s = String(text || '').replace(/\s+/g, ' ').trim();
+    if (s.length <= maxLen) return s;
+    return s.slice(-maxLen);
+}
+
+function escapeRegexDiag(str) {
+    return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function pickCaptureGroupDiag(m) {
+    if (!m || m.length <= 1) return m && m[1] ? m[1] : null;
+    for (let i = m.length - 1; i >= 1; i--) {
+        if (m[i] !== undefined && m[i] !== null && String(m[i]).trim() !== '') {
+            return m[i];
+        }
+    }
+    return m[1] || null;
+}
+
+function tryMatchRegex(text, regexStr) {
+    if (!regexStr) return { hit: false, value: '', error: '' };
+    try {
+        const re = new RegExp(regexStr);
+        const m = text.match(re);
+        if (m) {
+            const g = pickCaptureGroupDiag(m);
+            return { hit: true, value: (g || m[0]).trim(), error: '' };
+        }
+        return { hit: false, value: '', error: '' };
+    } catch (e) {
+        return { hit: false, value: '', error: e?.message || String(e) };
+    }
+}
+
+function tryMatchKey(text, key) {
+    if (!key) return { hit: false, value: '' };
+    try {
+        const re = new RegExp(escapeRegexDiag(key) + '\\s*[:=：]\\s*(.+)', 'im');
+        const m = text.match(re);
+        if (m) {
+            return { hit: true, value: String(m[1] || '').trim() };
+        }
+    } catch (_) { }
+    return { hit: false, value: '' };
+}
+
+function buildParseDiagnostics(settings) {
+    const lines = [];
+    const latest = getLatestAiMessage();
+    if (!latest) {
+        lines.push(t('diag.parseNoAi'));
+        return lines;
+    }
+
+    const text = String(latest.mes || '');
+    const snippet = truncateForDiag(text, 240);
+
+    const worldTagMatch = text.match(/\[\[WORLD\]\][\s\S]*?\[\[\/WORLD\]\]/i) || text.match(/<WORLD>[\s\S]*?<\/WORLD>/i);
+
+    let wrapperVal = t('common.notSet');
+    const wrapperLabel = settings.tagWrapper ? settings.tagWrapper : t('common.notSet');
+    if (settings.tagWrapper) {
+        const wr = new RegExp(`<${escapeRegexDiag(settings.tagWrapper)}>[\\s\\S]*?<\\/${escapeRegexDiag(settings.tagWrapper)}>`, 'i');
+        wrapperVal = wr.test(text) ? t('diag.ok') : t('diag.fail');
+    }
+
+    const timeRegex = tryMatchRegex(text, settings.timeRegexCustom);
+    const locRegex = tryMatchRegex(text, settings.locationRegexCustom);
+
+    let timeRegexVal = t('common.notSet');
+    if (settings.timeRegexCustom) {
+        timeRegexVal = timeRegex.error
+            ? t('diag.parseRegexError', { err: timeRegex.error })
+            : (timeRegex.hit ? timeRegex.value : t('common.none'));
+    }
+
+    let locRegexVal = t('common.notSet');
+    if (settings.locationRegexCustom) {
+        locRegexVal = locRegex.error
+            ? t('diag.parseRegexError', { err: locRegex.error })
+            : (locRegex.hit ? locRegex.value : t('common.none'));
+    }
+
+    const timeKey = tryMatchKey(text, settings.timeKey);
+    const locKey = tryMatchKey(text, settings.locationKey);
+
+    const extracted = extractFromMessage(text, settings);
+    const timeVal = extracted.time ? extracted.time.iso : t('common.none');
+    const locVal = extracted.location || t('common.none');
+
+    let reason = '';
+    if (extracted.time) {
+        reason = t('diag.parseReasonOk');
+    } else if (settings.worldTagMode && !worldTagMatch) {
+        reason = t('diag.parseReasonWorld');
+    } else if (extracted.rawTime && !extracted.time) {
+        reason = t('diag.parseReasonTimeFail');
+    } else {
+        reason = t('diag.parseReasonNoTime');
+    }
+
+    lines.push(t('diag.parseLatest', { id: latest.id }));
+    lines.push(t('diag.parseSnippet', { text: snippet || t('common.none') }));
+    lines.push(t('diag.parseWorldTag', { val: worldTagMatch ? t('diag.ok') : t('diag.fail') }));
+    lines.push(t('diag.parseTagWrapper', { name: wrapperLabel, val: wrapperVal }));
+    lines.push(t('diag.parseTimeRegex', { val: timeRegexVal }));
+    lines.push(t('diag.parseLocationRegex', { val: locRegexVal }));
+    lines.push(t('diag.parseTimeKey', { val: timeKey.hit ? timeKey.value : t('common.none') }));
+    lines.push(t('diag.parseLocationKey', { val: locKey.hit ? locKey.value : t('common.none') }));
+    lines.push(t('diag.parseResultTime', { val: timeVal }));
+    lines.push(t('diag.parseResultLoc', { val: locVal }));
+    lines.push(t('diag.parseReason', { val: reason }));
+
+    return lines;
+}
+
 async function runDiagnostics(onProgress) {
     const settings = getSettings();
     const cs = getChatState();
@@ -1568,7 +1697,11 @@ async function runDiagnostics(onProgress) {
     lines.push(t('diag.stateCycle', { val: Object.keys(cs.cycleStates || {}).length }));
     lines.push(t('diag.stateSnap', { val: Object.keys(cs.snapshots || {}).length }));
 
-    await update(50, t('diag.progressCalendar'));
+    await update(40, t('diag.progressParse'));
+    lines.push('\n' + t('diag.parse'));
+    lines.push(...buildParseDiagnostics(settings));
+
+    await update(55, t('diag.progressCalendar'));
     lines.push('\n' + t('diag.api'));
     await loadChineseDays();
     lines.push(t('diag.chineseDays', { val: window.chineseDays ? t('diag.ok') : t('diag.fail') }));
@@ -1582,7 +1715,7 @@ async function runDiagnostics(onProgress) {
     }
     lines.push(t('diag.calendarApi', { val: calendarResult }));
 
-    await update(75, t('diag.progressWeather'));
+    await update(80, t('diag.progressWeather'));
     let weatherResult = t('common.notTested');
     if (!settings.weatherEnabled) {
         weatherResult = t('common.disabled');
