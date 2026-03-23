@@ -204,9 +204,18 @@ function parseWorldTagBlock(text) {
     return data;
 }
 
+function stripMVUBlocks(text) {
+    if (!text) return '';
+    let s = String(text);
+    s = s.replace(/<UpdateVariable>[\s\S]*?<\/UpdateVariable>/gi, '');
+    s = s.replace(/<UpdateCharacter>[\s\S]*?<\/UpdateCharacter>/gi, '');
+    s = s.replace(/<UpdateChat>[\s\S]*?<\/UpdateChat>/gi, '');
+    return s;
+}
+
 export function extractFromMessage(messageText, settings) {
     const result = { time: null, location: null, rawTime: null, eraYear: null };
-    let content = messageText;
+    let content = stripMVUBlocks(messageText);
 
     if (settings.tagWrapper) {
         const re = new RegExp(`<${escapeRegex(settings.tagWrapper)}>([\\s\\S]*?)<\\/${escapeRegex(settings.tagWrapper)}>`);
