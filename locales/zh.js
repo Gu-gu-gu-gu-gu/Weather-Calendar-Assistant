@@ -202,7 +202,7 @@ export const ZH = {
         snapshots: '📦 快照数: {count}',
         cycle: '🩸 生理周期追踪: {count}个角色'
     },
-    diag: {
+        diag: {
         title: '==== WorldEngine 诊断报告 ====',
         end: '==== 诊断结束 ====',
         time: '- 诊断时间: {time}',
@@ -234,9 +234,28 @@ export const ZH = {
         progressBase: '收集基础信息...',
         progressSettings: '读取插件设置...',
         progressState: '读取当前世界状态...',
+        progressParse: '解析诊断...',
         progressCalendar: '加载并测试日历API...',
         progressWeather: '测试天气API...',
-        progressDone: '报告生成完毕'
+        progressDone: '报告生成完毕',
+        parse: '[🔍 解析诊断]',
+        parseNoAi: '- 未找到AI消息，无法测试解析',
+        parseLatest: '- 最新AI消息: #{id}',
+        parseSnippet: '- AI消息末尾: {text}',
+        parseWorldTag: '- WORLD标签: {val}',
+        parseTagWrapper: '- XML标签({name}): {val}',
+        parseTimeRegex: '- 时间正则命中: {val}',
+        parseLocationRegex: '- 地点正则命中: {val}',
+        parseTimeKey: '- 时间Key命中: {val}',
+        parseLocationKey: '- 地点Key命中: {val}',
+        parseResultTime: '- 解析时间: {val}',
+        parseResultLoc: '- 解析地点: {val}',
+        parseReason: '- 解析结论: {val}',
+        parseReasonOk: '成功',
+        parseReasonWorld: '强制WORLD模式但未检测到WORLD标签',
+        parseReasonTimeFail: '命中时间文本但解析失败',
+        parseReasonNoTime: '未命中任何时间',
+        parseRegexError: '正则错误: {err}'
     },
     prompt: {
         title: '[📅 World Engine - 世界状态]',
