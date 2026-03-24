@@ -94,7 +94,7 @@ export async function buildInjectionPrompt() {
     }
 
     if (settings.weatherEnabled && cs.weatherState) {
-        const wp = getWeatherPrompt(cs.weatherState, settings.worldEra);
+        const wp = getWeatherPrompt(cs.weatherState, settings.worldEra, cs.currentTime, cs.currentLocation);
         if (wp) sections.push(wp);
     }
 
