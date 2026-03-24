@@ -1,7 +1,7 @@
 import { EXTENSION_NAME, getSettings, getChatState, saveState, saveSnapshot, restoreSnapshot, findPreviousSnapshotId, clearSnapshotsAfter } from './state.js';
 import { autoDetectFormat, extractFromMessage, parseTimeValue } from './parser.js';
 import { loadChineseDays, getHolidayInfo } from './calendar.js';
-import { rollWeather, shouldRerollWeather, getWeatherForDate } from './weather.js';
+import { rollWeather, shouldRerollWeather, getWeatherForDate, getHourlyTemperature } from './weather.js';
 import { detectGenderInfo, initCycleForCharacter, getCycleStatus } from './cycle.js';
 import { updateInjection, buildInjectionPrompt } from './injector.js';
 import { t } from './i18n.js';
@@ -1511,7 +1511,8 @@ function refreshStatusDisplay() {
         if (cs.weatherState) {
             const src = cs.weatherState.source ? `(${cs.weatherState.source})` : '';
             const extreme = cs.weatherState.extreme ? t('common.extreme') : '';
-            lines.push(t('status.weather', { weather: cs.weatherState.cn, temp: cs.weatherState.temp, src, extreme }));
+            const displayTemp = getHourlyTemperature(cs.weatherState, cs.currentTime, cs.currentLocation);
+            lines.push(t('status.weather', { weather: cs.weatherState.cn, temp: displayTemp, src, extreme }));
         }
         lines.push(t('status.region', { region: settings.countryCode }));
         lines.push(t('status.era', { era: settings.worldEra === 'ancient' ? t('ui.general.ancient') : t('ui.general.modern') }));
@@ -1671,7 +1672,7 @@ async function runDiagnostics(onProgress) {
     await update(5, t('diag.progressBase'));
     lines.push(t('diag.title'));
     lines.push(t('diag.time', { time: now.toISOString() }));
-    lines.push(t('diag.version', { version: '1.4.1' }));
+    lines.push(t('diag.version', { version: '1.5.0' }));
 
     await update(15, t('diag.progressSettings'));
     lines.push('\n' + t('diag.settings'));
