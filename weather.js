@@ -119,15 +119,14 @@ function weightedRandom(items) {
     return items[items.length - 1];
 }
 
-function randomInRange(min, max) {
-    return Math.round(min + Math.random() * (max - min));
-}
-
 export function rollWeather(month) {
     const season = getSeason(month);
     const table = WEATHER_TABLE[season] || WEATHER_TABLE.spring;
     const picked = weightedRandom(table);
-    const temp = randomInRange(picked.tempRange[0], picked.tempRange[1]);
+    const minTemp = picked.tempRange[0];
+    const maxTemp = picked.tempRange[1];
+    const goldenRatio = (Math.sqrt(5) - 1) / 2;
+    const temp = Math.round(minTemp + (maxTemp - minTemp) * goldenRatio);
     return {
         type: picked.type,
         cn: picked.cn,
@@ -137,6 +136,9 @@ export function rollWeather(month) {
         season,
         source: 'roll',
         isRainy: isRainyType(picked.type),
+        minTemp,
+        maxTemp,
+        diurnalRange: buildDefaultDiurnalRange(season),
     };
 }
 
@@ -209,6 +211,9 @@ export async function getWeatherForDate(dateStr, locationName, settings, previou
             location,
             wmoCode: data.wmoCode,
             isRainy: data.isRainy,
+            minTemp: data.minTemp,
+            maxTemp: data.maxTemp,
+            diurnalRange: data.diurnalRange,
         };
     } else {
         const month = parseInt(dateStr.slice(5, 7));
@@ -275,9 +280,12 @@ function parseOpenMeteoDaily(data, dateStr, source) {
 
     if (maxTemp === undefined || minTemp === undefined) return null;
 
-    const temp = Math.round((maxTemp + minTemp) / 2);
+    const range = Math.max(0, maxTemp - minTemp);
+    const goldenRatio = (Math.sqrt(5) - 1) / 2;
+    const temp = Math.round(minTemp + range * goldenRatio);
     const info = WMO_MAP[wmoCode] || { type: 'cloudy', cn: '多云', en: 'Cloudy', extreme: false };
     const isRainy = isRainyType(info.type);
+    const diurnalRange = Math.max(2, Math.min(8, Math.round(range * 0.55)));
 
     return {
         type: info.type,
@@ -288,6 +296,9 @@ function parseOpenMeteoDaily(data, dateStr, source) {
         wmoCode,
         isRainy,
         source,
+        maxTemp,
+        minTemp,
+        diurnalRange,
     };
 }
 
@@ -365,11 +376,62 @@ function mapAncientLocation(raw, settings) {
     return ANCIENT_TO_MODERN[base] || base;
 }
 
-export function getWeatherPrompt(weather, worldEra = 'modern') {
+export function getHourlyTemperature(weather, dateTimeIso, locationName = '') {
+    if (!weather) return null;
+    if (!dateTimeIso) return weather.temp;
+
+    const d = new Date(dateTimeIso);
+    if (isNaN(d.getTime())) return weather.temp;
+
+    const baseTemp = typeof weather.temp === 'number' ? weather.temp : 0;
+    const dateStr = formatDate(d);
+    const hour = d.getHours();
+
+    let diurnal = typeof weather.diurnalRange === 'number'
+        ? weather.diurnalRange
+        : buildDefaultDiurnalRange(weather.season || 'spring');
+
+    if (weather.isRainy) {
+        diurnal = Math.max(1.5, diurnal * 0.75);
+    }
+
+    const amplitude = Math.max(1.2, Math.min(4.5, diurnal / 2));
+    const curve = Math.cos(((hour - 15) / 12) * Math.PI);
+    const offset = curve * amplitude;
+    const jitter = getDeterministicJitter(`${dateStr}|${locationName}|${weather.type}|${hour}`, 0.6);
+
+    return Math.round(baseTemp + offset + jitter);
+}
+
+function buildDefaultDiurnalRange(season) {
+    if (season === 'summer') return 6;
+    if (season === 'winter') return 4;
+    return 5;
+}
+
+function getDeterministicJitter(seed, scale = 0.6) {
+    const h = hashString(seed);
+    const n = (h % 10000) / 10000;
+    return (n * 2 - 1) * scale;
+}
+
+function hashString(str) {
+    let h = 2166136261 >>> 0;
+    const s = String(str || '');
+    for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+}
+
+export function getWeatherPrompt(weather, worldEra = 'modern', dateTimeIso = '', locationName = '') {
     if (!weather) return '';
+    const displayTemp = getHourlyTemperature(weather, dateTimeIso, locationName);
+
     if (worldEra === 'ancient') {
         const desc = getAncientWeatherText(weather.type);
-        const tempWord = getAncientTempWord(weather.temp);
+        const tempWord = getAncientTempWord(displayTemp);
         let lines = [];
         lines.push(t('weather.ancientPrefix', { text: desc, tempWord }));
         if (weather.extreme) {
@@ -382,7 +444,7 @@ export function getWeatherPrompt(weather, worldEra = 'modern') {
     }
 
     let lines = [];
-    lines.push(t('weather.current', { cn: weather.cn, en: weather.en, temp: weather.temp }));
+    lines.push(t('weather.current', { cn: weather.cn, en: weather.en, temp: displayTemp }));
 
     if (weather.extreme) {
         lines.push(t('weather.extreme', { cn: weather.cn, en: weather.en }));
