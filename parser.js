@@ -1,7 +1,17 @@
 import { getChatState } from './state.js';
 
 const TIME_KEYS_DEFAULT = ['time', 'date', '时间', '日期', 'datetime', 'when', 'timestamp'];
-const LOCATION_KEYS_DEFAULT = ['location', '地点', '地区', 'place', '城市', 'city', 'where', 'region', 'area'];
+const LOCATION_KEYS_DEFAULT = [
+    'location',
+    '地点',
+    '地区',
+    'place',
+    '城市',
+    'city',
+    'where',
+    'region',
+    'area',
+];
 
 export function autoDetectFormat(messageText) {
     const result = {
@@ -73,22 +83,36 @@ function parseDateWithYMD(s) {
 }
 
 function parseDateWithMonthName(s) {
-    const m = s.match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?\,?\s*(\d{4})/i);
+    const m = s.match(
+        /\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?\,?\s*(\d{4})/i
+    );
     if (!m) return null;
 
     const monthMap = {
-        jan: 1, january: 1,
-        feb: 2, february: 2,
-        mar: 3, march: 3,
-        apr: 4, april: 4,
+        jan: 1,
+        january: 1,
+        feb: 2,
+        february: 2,
+        mar: 3,
+        march: 3,
+        apr: 4,
+        april: 4,
         may: 5,
-        jun: 6, june: 6,
-        jul: 7, july: 7,
-        aug: 8, august: 8,
-        sep: 9, sept: 9, september: 9,
-        oct: 10, october: 10,
-        nov: 11, november: 11,
-        dec: 12, december: 12,
+        jun: 6,
+        june: 6,
+        jul: 7,
+        july: 7,
+        aug: 8,
+        august: 8,
+        sep: 9,
+        sept: 9,
+        september: 9,
+        oct: 10,
+        october: 10,
+        nov: 11,
+        november: 11,
+        dec: 12,
+        december: 12,
     };
 
     const monthKey = String(m[1]).toLowerCase();
@@ -121,7 +145,9 @@ function parseDateWithMDY(s) {
 }
 
 function parseEraDateWithYMD(s, baseDateStr) {
-    const m = s.match(/([^\d\s]{1,12})([零一二三四五六七八九十百千元0-9]+)年\s*(\d{1,2})月\s*(\d{1,2})日/);
+    const m = s.match(
+        /([^\d\s]{1,12})([零一二三四五六七八九十百千元0-9]+)年\s*(\d{1,2})月\s*(\d{1,2})日/
+    );
     if (!m) return null;
 
     const label = m[1].trim();
@@ -161,7 +187,7 @@ function parseTimeOnly(s, baseDateStr) {
 
 function parseClockFromString(s) {
     const matches = [];
-    const re = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/ig;
+    const re = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/gi;
     let m;
     while ((m = re.exec(s)) !== null) {
         const hasColon = m[2] !== undefined;
@@ -180,8 +206,10 @@ function parseClockFromString(s) {
         matches.push({ hour, minute });
     }
 
-    let hour = 8, minute = 0;
-    let endHour = null, endMinute = null;
+    let hour = 8,
+        minute = 0;
+    let endHour = null,
+        endMinute = null;
 
     if (matches.length > 0) {
         hour = matches[0].hour;
@@ -201,8 +229,14 @@ function buildTimeResult(year, month, day, hour, minute, endHour, endMinute, cro
     const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
     return {
         date: new Date(year, month - 1, day, hour, minute),
-        year, month, day, hour, minute,
-        endHour, endMinute, crossDay,
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        endHour,
+        endMinute,
+        crossDay,
         dateStr,
         timeStr,
         iso: `${dateStr}T${timeStr}:00`,
@@ -211,7 +245,9 @@ function buildTimeResult(year, month, day, hour, minute, endHour, endMinute, cro
 
 function parseWorldTagBlock(text) {
     if (!text) return null;
-    let m = text.match(/\[\[\s*WORLD\s*\]\]([\s\S]*?)(\[\[\s*\/\s*WORLD\s*\]\]|\[\[\\\/WORLD\]\]|$)/i);
+    let m = text.match(
+        /\[\[\s*WORLD\s*\]\]([\s\S]*?)(\[\[\s*\/\s*WORLD\s*\]\]|\[\[\\\/WORLD\]\]|$)/i
+    );
     if (!m) {
         m = text.match(/<\s*WORLD\s*>([\s\S]*?)(<\s*\/\s*WORLD\s*>|$)/i);
     }
@@ -219,14 +255,17 @@ function parseWorldTagBlock(text) {
 
     const inner = m[1];
     const data = { time: '', location: '' };
-    const re = /([a-zA-Z\u4e00-\u9fff_]+)\s*[:=：]\s*([^\n\|｜;；]+)(?=[\n\|｜;；]|$)/g;
+    const re =
+        /([a-zA-Z\u4e00-\u9fff_]+)\s*[:=：]\s*([\s\S]*?)(?=\s*(?:\||｜|;|；|\n|\r|\[\[\s*\/\s*WORLD\s*\]\]|<\s*\/\s*WORLD\s*>|$))/g;
     let match;
     while ((match = re.exec(inner)) !== null) {
         const key = String(match[1]).trim().toLowerCase();
-        const val = String(match[2]).trim();
+        const val = cleanExtractedFieldValue(match[2]);
         if (!val) continue;
-        if (['time', 'date', 'datetime', '时间', '日期', 'when', 'timestamp'].includes(key)) data.time = val;
-        if (['location', 'place', 'city', '地点', '地区', 'where', 'region', 'area'].includes(key)) data.location = val;
+        if (['time', 'date', 'datetime', '时间', '日期', 'when', 'timestamp'].includes(key))
+            data.time = val;
+        if (['location', 'place', 'city', '地点', '地区', 'where', 'region', 'area'].includes(key))
+            data.location = val;
     }
     if (!data.time && !data.location) return null;
     return data;
@@ -241,12 +280,41 @@ function stripMVUBlocks(text) {
     return s;
 }
 
+function cleanExtractedFieldValue(raw) {
+    let s = String(raw || '').trim();
+    s = s.replace(/^\s*[|｜;；]+\s*/, '');
+    s = s.replace(
+        /\s*(\[\[\s*\/\s*WORLD\s*\]\]|\[\[\\\/WORLD\]\]|<\s*\/\s*WORLD\s*>)+\s*$/gi,
+        ''
+    );
+    s = s.replace(/\s*[|｜;；]+\s*$/g, '');
+    return s.trim();
+}
+
+function matchKeyValueBounded(text, key) {
+    if (!text || !key) return '';
+    try {
+        const re = new RegExp(
+            escapeRegex(key) +
+                '\\s*[:=：]\\s*([\\s\\S]*?)(?=\\s*(?:\\||｜|;|；|\\n|\\r|\\[\\[\\s*\\/\\s*WORLD\\s*\\]\\]|<\\s*\\/\\s*WORLD\\s*>|$))',
+            'im'
+        );
+        const m = text.match(re);
+        if (!m) return '';
+        return cleanExtractedFieldValue(m[1]);
+    } catch (_) {
+        return '';
+    }
+}
+
 export function extractFromMessage(messageText, settings) {
     const result = { time: null, location: null, rawTime: null, eraYear: null };
     let content = stripMVUBlocks(messageText);
 
     if (settings.tagWrapper) {
-        const re = new RegExp(`<${escapeRegex(settings.tagWrapper)}>([\\s\\S]*?)<\\/${escapeRegex(settings.tagWrapper)}>`);
+        const re = new RegExp(
+            `<${escapeRegex(settings.tagWrapper)}>([\\s\\S]*?)<\\/${escapeRegex(settings.tagWrapper)}>`
+        );
         const m = content.match(re);
         if (m) content = m[1];
     }
@@ -268,10 +336,10 @@ export function extractFromMessage(messageText, settings) {
     const worldTag = parseWorldTagBlock(content);
     if (worldTag) {
         if (worldTag.time) {
-            result.rawTime = worldTag.time.trim();
+            result.rawTime = cleanExtractedFieldValue(worldTag.time);
             result.time = parseTimeValue(result.rawTime, baseDateStr);
         }
-        if (worldTag.location) result.location = worldTag.location.trim();
+        if (worldTag.location) result.location = cleanExtractedFieldValue(worldTag.location);
         const eraInfo = detectEraYearInfo(result.rawTime || content);
         if (eraInfo) result.eraYear = eraInfo;
     }
@@ -290,27 +358,25 @@ export function extractFromMessage(messageText, settings) {
             const m = content.match(new RegExp(settings.timeRegexCustom));
             if (m) {
                 const g = pickCaptureGroup(m);
-                result.rawTime = (g || m[0]).trim();
+                result.rawTime = cleanExtractedFieldValue((g || m[0]).trim());
                 result.time = parseTimeValue(result.rawTime, baseDateStr);
             }
-        } catch (_) { }
+        } catch (_) {}
     }
 
     if (!hasCustomTimeRegex && !result.time && settings.timeKey) {
-        const re = new RegExp(escapeRegex(settings.timeKey) + '\\s*[:=：]\\s*(.+)', 'im');
-        const m = content.match(re);
-        if (m) {
-            result.rawTime = m[1].trim();
+        const v = matchKeyValueBounded(content, settings.timeKey);
+        if (v) {
+            result.rawTime = v;
             result.time = parseTimeValue(result.rawTime, baseDateStr);
         }
     }
 
     if (!hasCustomTimeRegex && !result.time) {
         for (const k of TIME_KEYS_DEFAULT) {
-            const re = new RegExp(escapeRegex(k) + '\\s*[:=：]\\s*(.+)', 'im');
-            const m = content.match(re);
-            if (m) {
-                result.rawTime = m[1].trim();
+            const v = matchKeyValueBounded(content, k);
+            if (v) {
+                result.rawTime = v;
                 result.time = parseTimeValue(result.rawTime, baseDateStr);
                 if (result.time) break;
             }
@@ -322,23 +388,21 @@ export function extractFromMessage(messageText, settings) {
             const m = content.match(new RegExp(settings.locationRegexCustom));
             if (m) {
                 const g = pickCaptureGroup(m);
-                result.location = (g || m[0]).trim();
+                result.location = cleanExtractedFieldValue((g || m[0]).trim());
             }
-        } catch (_) { }
+        } catch (_) {}
     }
 
     if (!result.location && settings.locationKey) {
-        const re = new RegExp(escapeRegex(settings.locationKey) + '\\s*[:=：]\\s*(.+)', 'im');
-        const m = content.match(re);
-        if (m) result.location = m[1].trim();
+        const v = matchKeyValueBounded(content, settings.locationKey);
+        if (v) result.location = v;
     }
 
     if (!result.location) {
         for (const k of LOCATION_KEYS_DEFAULT) {
-            const re = new RegExp(escapeRegex(k) + '\\s*[:=：]\\s*(.+)', 'im');
-            const m = content.match(re);
-            if (m) {
-                result.location = m[1].trim();
+            const v = matchKeyValueBounded(content, k);
+            if (v) {
+                result.location = v;
                 break;
             }
         }
@@ -395,8 +459,11 @@ function parseLunarTimeValue(text, baseDateStr) {
         year: d.getFullYear(),
         month: d.getMonth() + 1,
         day: d.getDate(),
-        hour, minute,
-        endHour: null, endMinute: null, crossDay: false,
+        hour,
+        minute,
+        endHour: null,
+        endMinute: null,
+        crossDay: false,
         dateStr,
         timeStr,
         iso: `${dateStr}T${timeStr}:00`,
@@ -405,14 +472,57 @@ function parseLunarTimeValue(text, baseDateStr) {
 
 function parseLunarMonthDay(text) {
     const m = text.match(/(闰)?(正|一|二|三|四|五|六|七|八|九|十|冬|腊)月/);
-    const d = text.match(/(初一|初二|初三|初四|初五|初六|初七|初八|初九|初十|十一|十二|十三|十四|十五|十六|十七|十八|十九|二十|廿一|廿二|廿三|廿四|廿五|廿六|廿七|廿八|廿九|三十)(日|号)?/);
+    const d = text.match(
+        /(初一|初二|初三|初四|初五|初六|初七|初八|初九|初十|十一|十二|十三|十四|十五|十六|十七|十八|十九|二十|廿一|廿二|廿三|廿四|廿五|廿六|廿七|廿八|廿九|三十)(日|号)?/
+    );
     if (!m || !d) return null;
 
-    const monthMap = { 正:1, 一:1, 二:2, 三:3, 四:4, 五:5, 六:6, 七:7, 八:8, 九:9, 十:10, 冬:11, 腊:12 };
+    const monthMap = {
+        正: 1,
+        一: 1,
+        二: 2,
+        三: 3,
+        四: 4,
+        五: 5,
+        六: 6,
+        七: 7,
+        八: 8,
+        九: 9,
+        十: 10,
+        冬: 11,
+        腊: 12,
+    };
     const dayMap = {
-        初一:1, 初二:2, 初三:3, 初四:4, 初五:5, 初六:6, 初七:7, 初八:8, 初九:9, 初十:10,
-        十一:11, 十二:12, 十三:13, 十四:14, 十五:15, 十六:16, 十七:17, 十八:18, 十九:19, 二十:20,
-        廿一:21, 廿二:22, 廿三:23, 廿四:24, 廿五:25, 廿六:26, 廿七:27, 廿八:28, 廿九:29, 三十:30
+        初一: 1,
+        初二: 2,
+        初三: 3,
+        初四: 4,
+        初五: 5,
+        初六: 6,
+        初七: 7,
+        初八: 8,
+        初九: 9,
+        初十: 10,
+        十一: 11,
+        十二: 12,
+        十三: 13,
+        十四: 14,
+        十五: 15,
+        十六: 16,
+        十七: 17,
+        十八: 18,
+        十九: 19,
+        二十: 20,
+        廿一: 21,
+        廿二: 22,
+        廿三: 23,
+        廿四: 24,
+        廿五: 25,
+        廿六: 26,
+        廿七: 27,
+        廿八: 28,
+        廿九: 29,
+        三十: 30,
     };
 
     const month = monthMap[m[2]];
@@ -423,13 +533,23 @@ function parseLunarMonthDay(text) {
 
 function parseShichen(text) {
     const map = {
-        子:23, 丑:1, 寅:3, 卯:5, 辰:7, 巳:9,
-        午:11, 未:13, 申:15, 酉:17, 戌:19, 亥:21
+        子: 23,
+        丑: 1,
+        寅: 3,
+        卯: 5,
+        辰: 7,
+        巳: 9,
+        午: 11,
+        未: 13,
+        申: 15,
+        酉: 17,
+        戌: 19,
+        亥: 21,
     };
     const m = text.match(/([子丑寅卯辰巳午未申酉戌亥])时(一刻|二刻|三刻|四刻)?/);
     if (!m) return { hour: 8, minute: 0 };
     const hour = map[m[1]] ?? 8;
-    const keMap = { 一刻:0, 二刻:15, 三刻:30, 四刻:45 };
+    const keMap = { 一刻: 0, 二刻: 15, 三刻: 30, 四刻: 45 };
     const minute = keMap[m[2]] ?? 0;
     return { hour, minute };
 }
@@ -454,8 +574,8 @@ function parseChineseNumber(str) {
     if (!str) return null;
     if (/^\d+$/.test(str)) return parseInt(str);
     if (str === '元') return 1;
-    const numMap = { 零:0, 一:1, 二:2, 三:3, 四:4, 五:5, 六:6, 七:7, 八:8, 九:9 };
-    const unitMap = { 十:10, 百:100, 千:1000 };
+    const numMap = { 零: 0, 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+    const unitMap = { 十: 10, 百: 100, 千: 1000 };
     let total = 0;
     let current = 0;
     for (const ch of str) {
@@ -489,8 +609,12 @@ function escapeRegex(str) {
 }
 
 function detectLocationFreeForm(content) {
-    const lines = content.split('\n').map(x => x.trim()).filter(Boolean);
-    const re = /^[A-Za-z\u4e00-\u9fff][A-Za-z\u4e00-\u9fff\s]*(?:\s*[·\-–—,，\/]\s*[A-Za-z\u4e00-\u9fff\s]+){1,4}$/;
+    const lines = content
+        .split('\n')
+        .map((x) => x.trim())
+        .filter(Boolean);
+    const re =
+        /^[A-Za-z\u4e00-\u9fff][A-Za-z\u4e00-\u9fff\s]*(?:\s*[·\-–—,，\/]\s*[A-Za-z\u4e00-\u9fff\s]+){1,4}$/;
     for (const line of lines) {
         if (line.length < 3 || line.length > 80) continue;
         if (re.test(line)) return line;
