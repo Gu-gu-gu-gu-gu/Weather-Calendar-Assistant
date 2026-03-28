@@ -1,7 +1,21 @@
-import { EXTENSION_NAME, getSettings, getChatState, saveState, saveSnapshot, restoreSnapshot, findPreviousSnapshotId, clearSnapshotsAfter } from './state.js';
+import {
+    EXTENSION_NAME,
+    getSettings,
+    getChatState,
+    saveState,
+    saveSnapshot,
+    restoreSnapshot,
+    findPreviousSnapshotId,
+    clearSnapshotsAfter,
+} from './state.js';
 import { autoDetectFormat, extractFromMessage, parseTimeValue } from './parser.js';
 import { loadChineseDays, getHolidayInfo } from './calendar.js';
-import { rollWeather, shouldRerollWeather, getWeatherForDate, getHourlyTemperature } from './weather.js';
+import {
+    rollWeather,
+    shouldRerollWeather,
+    getWeatherForDate,
+    getHourlyTemperature,
+} from './weather.js';
 import { detectGenderInfo, initCycleForCharacter, getCycleStatus } from './cycle.js';
 import { updateInjection, buildInjectionPrompt } from './injector.js';
 import { t } from './i18n.js';
@@ -33,14 +47,16 @@ jQuery(() => {
         context.eventSource.on(context.eventTypes.MESSAGE_SWIPED, onMessageSwiped);
         context.eventSource.on(context.eventTypes.CHAT_CHANGED, onChatChanged);
 
-        context.SlashCommandParser.addCommandObject(context.SlashCommand.fromProps({
-            name: 'wetime',
-            callback: async (_args, value) => {
-                if (!value) return t('common.usageTimeCmd');
-                return await handleTimeCommand(value.trim());
-            },
-            helpString: t('common.timeCmdHelp'),
-        }));
+        context.SlashCommandParser.addCommandObject(
+            context.SlashCommand.fromProps({
+                name: 'wetime',
+                callback: async (_args, value) => {
+                    if (!value) return t('common.usageTimeCmd');
+                    return await handleTimeCommand(value.trim());
+                },
+                helpString: t('common.timeCmdHelp'),
+            })
+        );
 
         await tryInitFromLatest();
         await updateInjection();
@@ -92,7 +108,12 @@ async function onMessageReceived(messageId) {
 
     if (settings.weatherEnabled) {
         if (shouldRerollWeather(oldDateStr, newDateStr, cs.weatherState, cs.currentLocation)) {
-            cs.weatherState = await getWeatherForDate(newDateStr, cs.currentLocation, settings, cs.weatherState);
+            cs.weatherState = await getWeatherForDate(
+                newDateStr,
+                cs.currentLocation,
+                settings,
+                cs.weatherState
+            );
         }
     }
 
@@ -131,8 +152,21 @@ async function onMessageEdited(messageId) {
             cs.eraYearBaseGregorian = extracted.time.year;
         }
 
-        if (settings.weatherEnabled && shouldRerollWeather(oldDateStr, extracted.time.dateStr, cs.weatherState, cs.currentLocation)) {
-            cs.weatherState = await getWeatherForDate(extracted.time.dateStr, cs.currentLocation, settings, cs.weatherState);
+        if (
+            settings.weatherEnabled &&
+            shouldRerollWeather(
+                oldDateStr,
+                extracted.time.dateStr,
+                cs.weatherState,
+                cs.currentLocation
+            )
+        ) {
+            cs.weatherState = await getWeatherForDate(
+                extracted.time.dateStr,
+                cs.currentLocation,
+                settings,
+                cs.weatherState
+            );
         }
 
         saveSnapshot(messageId);
@@ -206,7 +240,7 @@ function resetWorldState() {
 
 function clearWorldStateIfNoUserMessages() {
     const context = SillyTavern.getContext();
-    const hasUser = Array.isArray(context.chat) && context.chat.some(m => m.is_user);
+    const hasUser = Array.isArray(context.chat) && context.chat.some((m) => m.is_user);
     if (!hasUser) {
         resetWorldState();
         return true;
@@ -241,7 +275,12 @@ async function tryInitFromLatest() {
             }
 
             if (settings.weatherEnabled) {
-                cs.weatherState = await getWeatherForDate(extracted.time.dateStr, cs.currentLocation, settings, cs.weatherState);
+                cs.weatherState = await getWeatherForDate(
+                    extracted.time.dateStr,
+                    cs.currentLocation,
+                    settings,
+                    cs.weatherState
+                );
             }
             if (settings.cycleEnabled) {
                 updateCycleStates(extracted.time.dateStr);
@@ -325,9 +364,17 @@ function getCharacterDescription() {
     try {
         if (context.characterId !== undefined && context.characters[context.characterId]) {
             const char = context.characters[context.characterId];
-            return [char.description, char.personality, char.scenario, char.mes_example, char.first_mes].filter(Boolean).join('\n');
+            return [
+                char.description,
+                char.personality,
+                char.scenario,
+                char.mes_example,
+                char.first_mes,
+            ]
+                .filter(Boolean)
+                .join('\n');
         }
-    } catch (_) { }
+    } catch (_) {}
     return '';
 }
 
@@ -338,7 +385,7 @@ function getUserDescription() {
             const persona = context.extensionSettings?.persona?.description || '';
             return persona;
         }
-    } catch (_) { }
+    } catch (_) {}
     return '';
 }
 
@@ -359,7 +406,12 @@ async function handleTimeCommand(input) {
 
         const dateStr = cs.currentTime.split('T')[0];
         if (settings.weatherEnabled) {
-            cs.weatherState = await getWeatherForDate(dateStr, cs.currentLocation, settings, cs.weatherState);
+            cs.weatherState = await getWeatherForDate(
+                dateStr,
+                cs.currentLocation,
+                settings,
+                cs.weatherState
+            );
         }
         saveState();
         refreshStatusDisplay();
@@ -371,7 +423,12 @@ async function handleTimeCommand(input) {
     if (parsed) {
         cs.currentTime = parsed.iso;
         if (settings.weatherEnabled) {
-            cs.weatherState = await getWeatherForDate(parsed.dateStr, cs.currentLocation, settings, cs.weatherState);
+            cs.weatherState = await getWeatherForDate(
+                parsed.dateStr,
+                cs.currentLocation,
+                settings,
+                cs.weatherState
+            );
         }
         saveState();
         refreshStatusDisplay();
@@ -751,15 +808,18 @@ function bindSettingsEvents() {
 
         let preset = null;
         if (nameInput) {
-            preset = presets.find(p => p.name === nameInput);
+            preset = presets.find((p) => p.name === nameInput);
         }
         if (!preset) {
             const currentId = $('#we-regex-preset').val();
-            preset = presets.find(p => p.id === currentId) || null;
+            preset = presets.find((p) => p.id === currentId) || null;
         }
 
         if (!preset) {
-            preset = { id: Date.now().toString(36), name: nameInput || `Preset${presets.length + 1}` };
+            preset = {
+                id: Date.now().toString(36),
+                name: nameInput || `Preset${presets.length + 1}`,
+            };
             presets.push(preset);
         }
 
@@ -783,7 +843,9 @@ function bindSettingsEvents() {
             return;
         }
 
-        settings.regexPresets = (settings.regexPresets || []).filter(p => String(p.id) !== String(id));
+        settings.regexPresets = (settings.regexPresets || []).filter(
+            (p) => String(p.id) !== String(id)
+        );
         if (settings.regexPresetLastId === id) settings.regexPresetLastId = '';
         saveState();
         renderRegexPresetOptions();
@@ -817,11 +879,15 @@ function bindSettingsEvents() {
                     $('#we-location-key').val(detected.locationKey);
                 }
                 saveState();
-                toastr.success(t('toast.detectSuccess', {
-                    tag: detected.tagWrapper || t('common.none'),
-                    timeKey: detected.timeKey || t('common.none'),
-                    locationKey: detected.locationKey || t('common.none')
-                }), t('app.name'), { timeOut: 5000 });
+                toastr.success(
+                    t('toast.detectSuccess', {
+                        tag: detected.tagWrapper || t('common.none'),
+                        timeKey: detected.timeKey || t('common.none'),
+                        locationKey: detected.locationKey || t('common.none'),
+                    }),
+                    t('app.name'),
+                    { timeOut: 5000 }
+                );
                 found = true;
                 break;
             }
@@ -872,7 +938,7 @@ function bindSettingsEvents() {
             date: monthDay,
             year,
             type,
-            characterIds: characterIds.map(String)
+            characterIds: characterIds.map(String),
         });
         saveState();
         renderEventList();
@@ -919,7 +985,7 @@ function bindSettingsEvents() {
         }
         const settings = getSettings();
         if (!Array.isArray(settings.ancientLocationMap)) settings.ancientLocationMap = [];
-        const existing = settings.ancientLocationMap.find(x => x.from === from);
+        const existing = settings.ancientLocationMap.find((x) => x.from === from);
         if (existing) {
             existing.to = to;
         } else {
@@ -935,7 +1001,9 @@ function bindSettingsEvents() {
     $('#we-settings-panel').on('click', '.we-del-ancient-map', function () {
         const from = $(this).data('from');
         const settings = getSettings();
-        settings.ancientLocationMap = (settings.ancientLocationMap || []).filter(x => x.from !== from);
+        settings.ancientLocationMap = (settings.ancientLocationMap || []).filter(
+            (x) => x.from !== from
+        );
         saveState();
         renderAncientMapList();
         updateInjection();
@@ -959,7 +1027,12 @@ function bindSettingsEvents() {
             toastr.warning(t('toast.noWorldTime'), t('app.name'));
             return;
         }
-        cs.weatherState = await getWeatherForDate(cs.currentTime.split('T')[0], cs.currentLocation, getSettings(), cs.weatherState);
+        cs.weatherState = await getWeatherForDate(
+            cs.currentTime.split('T')[0],
+            cs.currentLocation,
+            getSettings(),
+            cs.weatherState
+        );
         saveState();
         refreshStatusDisplay();
         updateInjection();
@@ -993,7 +1066,7 @@ function bindSettingsEvents() {
 
         const settings = getSettings();
         if (!Array.isArray(settings.manualCharacters)) settings.manualCharacters = [];
-        const existing = settings.manualCharacters.find(x => x.name === name);
+        const existing = settings.manualCharacters.find((x) => x.name === name);
         if (existing) {
             existing.gender = gender;
             existing.age = age;
@@ -1076,7 +1149,12 @@ function bindSettingsEvents() {
         }
 
         if (cs.currentTime && settings.weatherEnabled) {
-            cs.weatherState = await getWeatherForDate(cs.currentTime.split('T')[0], cs.currentLocation, settings, cs.weatherState);
+            cs.weatherState = await getWeatherForDate(
+                cs.currentTime.split('T')[0],
+                cs.currentLocation,
+                settings,
+                cs.weatherState
+            );
         }
         if (cs.currentTime && settings.cycleEnabled) {
             updateCycleStates(cs.currentTime.split('T')[0]);
@@ -1100,7 +1178,10 @@ function bindSettingsEvents() {
         try {
             const w = await getWeatherForDate(dateStr, location, settings, null);
             if (w && w.cn) {
-                toastr.success(t('toast.weatherOk', { weather: w.cn, temp: w.temp }), t('app.name'));
+                toastr.success(
+                    t('toast.weatherOk', { weather: w.cn, temp: w.temp }),
+                    t('app.name')
+                );
             } else {
                 toastr.error(t('toast.weatherBad'), t('app.name'));
             }
@@ -1115,7 +1196,10 @@ function bindSettingsEvents() {
         try {
             const info = await getHolidayInfo(dateStr, settings.countryCode);
             const name = info.holidayLocalName || info.holidayName || t('common.none');
-            toastr.success(t('toast.calendarOk', { date: dateStr, type: info.dayType, name }), t('app.name'));
+            toastr.success(
+                t('toast.calendarOk', { date: dateStr, type: info.dayType, name }),
+                t('app.name')
+            );
         } catch (e) {
             toastr.error(t('toast.calendarFail'), t('app.name'));
         }
@@ -1195,7 +1279,9 @@ function bindSettingsEvents() {
     $('#we-settings-panel').on('click', '.we-del-manual', function () {
         const name = $(this).data('name');
         const settings = getSettings();
-        settings.manualCharacters = (settings.manualCharacters || []).filter(x => x.name !== name);
+        settings.manualCharacters = (settings.manualCharacters || []).filter(
+            (x) => x.name !== name
+        );
         saveState();
         renderManualList();
         if (getChatState().currentTime) {
@@ -1270,8 +1356,9 @@ function renderEventList() {
         let bindLabel = '';
 
         if (Array.isArray(ev.characterIds) && ev.characterIds.length > 0) {
-            const names = ev.characterIds.map(id => getCharacterNameById(id)).filter(Boolean);
-            if (names.length > 0) bindLabel = `${t('common.bracketL')}${joinList(names)}${t('common.bracketR')}`;
+            const names = ev.characterIds.map((id) => getCharacterNameById(id)).filter(Boolean);
+            if (names.length > 0)
+                bindLabel = `${t('common.bracketL')}${joinList(names)}${t('common.bracketR')}`;
         } else if (ev.character) {
             bindLabel = `${t('common.bracketL')}${ev.character}${t('common.bracketR')}`;
         }
@@ -1285,7 +1372,7 @@ function renderEventList() {
 
     container.find('.we-del-event').on('click', function () {
         const id = $(this).data('id');
-        settings.events = settings.events.filter(e => e.id !== String(id));
+        settings.events = settings.events.filter((e) => e.id !== String(id));
         saveState();
         renderEventList();
         updateInjection();
@@ -1323,7 +1410,7 @@ function renderRegexPresetOptions() {
 function getRegexPresetById(id) {
     const settings = getSettings();
     const presets = Array.isArray(settings.regexPresets) ? settings.regexPresets : [];
-    return presets.find(p => String(p.id) === String(id)) || null;
+    return presets.find((p) => String(p.id) === String(id)) || null;
 }
 
 function applyRegexPreset(preset) {
@@ -1373,11 +1460,13 @@ function renderEventCharacterOptions() {
 
 function filterEventCharacterOptions(keyword) {
     const kw = (keyword || '').trim().toLowerCase();
-    $('#we-event-char').find('option').each(function () {
-        const text = $(this).text().toLowerCase();
-        const show = !kw || text.includes(kw);
-        $(this).prop('hidden', !show);
-    });
+    $('#we-event-char')
+        .find('option')
+        .each(function () {
+            const text = $(this).text().toLowerCase();
+            const show = !kw || text.includes(kw);
+            $(this).prop('hidden', !show);
+        });
 }
 
 function getCharacterNameById(id) {
@@ -1429,7 +1518,11 @@ function renderGenderOverrideList() {
         const override = settings.genderOverrides?.[name] || 'auto';
         const ageVal = settings.ageOverrides?.[name] ?? '';
         const genderLabel = getGenderLabel(info.gender);
-        const detectText = t('ui.cycle.autoDetectInfo', { gender: genderLabel, female: info.femaleCount, male: info.maleCount });
+        const detectText = t('ui.cycle.autoDetectInfo', {
+            gender: genderLabel,
+            female: info.femaleCount,
+            male: info.maleCount,
+        });
         const line = $(`
             <div class="we-row" style="margin-bottom:4px;">
                 <label>${name}</label>
@@ -1485,7 +1578,13 @@ function renderCycleList() {
         const status = getCycleStatus(data, dateStr);
         const agePart = data.age ? t('common.cycleAge', { age: data.age }) : '';
         const text = status
-            ? t('common.cycleLine', { name, desc: status.description, cycle: data.cycleLength, period: data.periodDuration, age: agePart })
+            ? t('common.cycleLine', {
+                  name,
+                  desc: status.description,
+                  cycle: data.cycleLength,
+                  period: data.periodDuration,
+                  age: agePart,
+              })
             : `${name}: ${t('common.cycleError')}`;
         container.append(`<div class="we-hint" style="margin:3px 0;">🩸 ${text}</div>`);
     }
@@ -1511,11 +1610,29 @@ function refreshStatusDisplay() {
         if (cs.weatherState) {
             const src = cs.weatherState.source ? `(${cs.weatherState.source})` : '';
             const extreme = cs.weatherState.extreme ? t('common.extreme') : '';
-            const displayTemp = getHourlyTemperature(cs.weatherState, cs.currentTime, cs.currentLocation);
-            lines.push(t('status.weather', { weather: cs.weatherState.cn, temp: displayTemp, src, extreme }));
+            const displayTemp = getHourlyTemperature(
+                cs.weatherState,
+                cs.currentTime,
+                cs.currentLocation
+            );
+            lines.push(
+                t('status.weather', {
+                    weather: cs.weatherState.cn,
+                    temp: displayTemp,
+                    src,
+                    extreme,
+                })
+            );
         }
         lines.push(t('status.region', { region: settings.countryCode }));
-        lines.push(t('status.era', { era: settings.worldEra === 'ancient' ? t('ui.general.ancient') : t('ui.general.modern') }));
+        lines.push(
+            t('status.era', {
+                era:
+                    settings.worldEra === 'ancient'
+                        ? t('ui.general.ancient')
+                        : t('ui.general.modern'),
+            })
+        );
         lines.push(t('status.snapshots', { count: Object.keys(cs.snapshots).length }));
 
         const cycleCount = Object.keys(cs.cycleStates).length;
@@ -1541,13 +1658,26 @@ function getLatestAiMessage() {
 }
 
 function truncateForDiag(text, maxLen = 240) {
-    const s = String(text || '').replace(/\s+/g, ' ').trim();
+    const s = String(text || '')
+        .replace(/\s+/g, ' ')
+        .trim();
     if (s.length <= maxLen) return s;
     return s.slice(-maxLen);
 }
 
 function escapeRegexDiag(str) {
     return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function cleanDiagFieldValue(raw) {
+    let s = String(raw || '').trim();
+    s = s.replace(/^\s*[|｜;；]+\s*/, '');
+    s = s.replace(
+        /\s*(\[\[\s*\/\s*WORLD\s*\]\]|\[\[\\\/WORLD\]\]|<\s*\/\s*WORLD\s*>)+\s*$/gi,
+        ''
+    );
+    s = s.replace(/\s*[|｜;；]+\s*$/g, '');
+    return s.trim();
 }
 
 function pickCaptureGroupDiag(m) {
@@ -1578,12 +1708,16 @@ function tryMatchRegex(text, regexStr) {
 function tryMatchKey(text, key) {
     if (!key) return { hit: false, value: '' };
     try {
-        const re = new RegExp(escapeRegexDiag(key) + '\\s*[:=：]\\s*(.+)', 'im');
+        const re = new RegExp(
+            escapeRegexDiag(key) +
+                '\\s*[:=：]\\s*([\\s\\S]*?)(?=\\s*(?:\\||｜|;|；|\\n|\\r|\\[\\[\\s*\\/\\s*WORLD\\s*\\]\\]|<\\s*\\/\\s*WORLD\\s*>|$))',
+            'im'
+        );
         const m = text.match(re);
         if (m) {
-            return { hit: true, value: String(m[1] || '').trim() };
+            return { hit: true, value: cleanDiagFieldValue(String(m[1] || '')) };
         }
-    } catch (_) { }
+    } catch (_) {}
     return { hit: false, value: '' };
 }
 
@@ -1598,12 +1732,17 @@ function buildParseDiagnostics(settings) {
     const text = String(latest.mes || '');
     const snippet = truncateForDiag(text, 240);
 
-    const worldTagMatch = text.match(/\[\[WORLD\]\][\s\S]*?\[\[\/WORLD\]\]/i) || text.match(/<WORLD>[\s\S]*?<\/WORLD>/i);
+    const worldTagMatch =
+        text.match(/\[\[WORLD\]\][\s\S]*?\[\[\/WORLD\]\]/i) ||
+        text.match(/<WORLD>[\s\S]*?<\/WORLD>/i);
 
     let wrapperVal = t('common.notSet');
     const wrapperLabel = settings.tagWrapper ? settings.tagWrapper : t('common.notSet');
     if (settings.tagWrapper) {
-        const wr = new RegExp(`<${escapeRegexDiag(settings.tagWrapper)}>[\\s\\S]*?<\\/${escapeRegexDiag(settings.tagWrapper)}>`, 'i');
+        const wr = new RegExp(
+            `<${escapeRegexDiag(settings.tagWrapper)}>[\\s\\S]*?<\\/${escapeRegexDiag(settings.tagWrapper)}>`,
+            'i'
+        );
         wrapperVal = wr.test(text) ? t('diag.ok') : t('diag.fail');
     }
 
@@ -1614,14 +1753,18 @@ function buildParseDiagnostics(settings) {
     if (settings.timeRegexCustom) {
         timeRegexVal = timeRegex.error
             ? t('diag.parseRegexError', { err: timeRegex.error })
-            : (timeRegex.hit ? timeRegex.value : t('common.none'));
+            : timeRegex.hit
+              ? timeRegex.value
+              : t('common.none');
     }
 
     let locRegexVal = t('common.notSet');
     if (settings.locationRegexCustom) {
         locRegexVal = locRegex.error
             ? t('diag.parseRegexError', { err: locRegex.error })
-            : (locRegex.hit ? locRegex.value : t('common.none'));
+            : locRegex.hit
+              ? locRegex.value
+              : t('common.none');
     }
 
     const timeKey = tryMatchKey(text, settings.timeKey);
@@ -1666,7 +1809,7 @@ async function runDiagnostics(onProgress) {
     const lines = [];
     const update = (percent, msg) => {
         if (onProgress) onProgress(percent, msg);
-        return new Promise(resolve => setTimeout(resolve, 80));
+        return new Promise((resolve) => setTimeout(resolve, 80));
     };
 
     await update(5, t('diag.progressBase'));
@@ -1677,11 +1820,21 @@ async function runDiagnostics(onProgress) {
     await update(15, t('diag.progressSettings'));
     lines.push('\n' + t('diag.settings'));
     lines.push(t('diag.enabled', { val: settings.enabled ? t('diag.ok') : t('diag.fail') }));
-    lines.push(t('diag.parseMode', { val: settings.worldTagMode ? t('common.parseModeWorldTag') : t('common.parseModeField') }));
+    lines.push(
+        t('diag.parseMode', {
+            val: settings.worldTagMode ? t('common.parseModeWorldTag') : t('common.parseModeField'),
+        })
+    );
     lines.push(t('diag.country', { val: settings.countryCode }));
-    lines.push(t('diag.era', { val: settings.worldEra === 'ancient' ? t('ui.general.ancient') : t('ui.general.modern') }));
+    lines.push(
+        t('diag.era', {
+            val: settings.worldEra === 'ancient' ? t('ui.general.ancient') : t('ui.general.modern'),
+        })
+    );
     lines.push(t('diag.weather', { val: settings.weatherEnabled ? t('diag.ok') : t('diag.fail') }));
-    lines.push(t('diag.calendar', { val: settings.calendarEnabled ? t('diag.ok') : t('diag.fail') }));
+    lines.push(
+        t('diag.calendar', { val: settings.calendarEnabled ? t('diag.ok') : t('diag.fail') })
+    );
     lines.push(t('diag.cycle', { val: settings.cycleEnabled ? t('diag.ok') : t('diag.fail') }));
     lines.push(t('diag.defaultCity', { val: settings.defaultCity || t('common.notSet') }));
     lines.push(t('diag.network', { val: navigator.onLine ? t('diag.online') : t('diag.offline') }));
@@ -1691,7 +1844,9 @@ async function runDiagnostics(onProgress) {
     lines.push(t('diag.stateTime', { val: cs.currentTime || t('common.notInit') }));
     lines.push(t('diag.stateLoc', { val: cs.currentLocation || t('common.unknown') }));
     if (cs.weatherState) {
-        lines.push(t('diag.stateWeather', { val: `${cs.weatherState.cn} ${cs.weatherState.temp}°C` }));
+        lines.push(
+            t('diag.stateWeather', { val: `${cs.weatherState.cn} ${cs.weatherState.temp}°C` })
+        );
     } else {
         lines.push(t('diag.stateWeather', { val: t('common.none') }));
     }
@@ -1727,7 +1882,9 @@ async function runDiagnostics(onProgress) {
         } else {
             try {
                 const w = await getWeatherForDate(dateStr, loc, settings, null);
-                weatherResult = w ? `${t('diag.ok')} (${w.cn} ${w.temp}°C)` : `${t('diag.fail')} (${t('common.none')})`;
+                weatherResult = w
+                    ? `${t('diag.ok')} (${w.cn} ${w.temp}°C)`
+                    : `${t('diag.fail')} (${t('common.none')})`;
             } catch (e) {
                 weatherResult = `${t('diag.fail')} (${e?.message || e})`;
             }
@@ -1746,7 +1903,7 @@ async function copyToClipboard(text) {
             await navigator.clipboard.writeText(text);
             return;
         }
-    } catch (_) { }
+    } catch (_) {}
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.style.position = 'fixed';
@@ -1755,7 +1912,7 @@ async function copyToClipboard(text) {
     textarea.select();
     try {
         document.execCommand('copy');
-    } catch (_) { }
+    } catch (_) {}
     document.body.removeChild(textarea);
 }
 
@@ -1787,7 +1944,7 @@ function openDiagnosticModal() {
         modal.on('click', (e) => {
             if (e.target.id === 'we-diagnose-modal') closeDiagnosticModal();
         });
-        modal.on('click', '.we-diagnose-copy-btn', async function() {
+        modal.on('click', '.we-diagnose-copy-btn', async function () {
             const text = modal.find('.we-diagnose-result').text();
             const btn = $(this);
             if (text) {
