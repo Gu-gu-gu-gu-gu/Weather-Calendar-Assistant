@@ -211,21 +211,21 @@ function buildTimeResult(year, month, day, hour, minute, endHour, endMinute, cro
 
 function parseWorldTagBlock(text) {
     if (!text) return null;
-    let m = text.match(/\[\[WORLD\]\]([\s\S]*?)(\[\[\/WORLD\]\]|$)/i);
+    let m = text.match(/\[\[\s*WORLD\s*\]\]([\s\S]*?)(\[\[\s*\/\s*WORLD\s*\]\]|\[\[\\\/WORLD\]\]|$)/i);
     if (!m) {
-        m = text.match(/<WORLD>([\s\S]*?)(<\/WORLD>|$)/i);
+        m = text.match(/<\s*WORLD\s*>([\s\S]*?)(<\s*\/\s*WORLD\s*>|$)/i);
     }
     if (!m) return null;
 
     const inner = m[1];
     const data = { time: '', location: '' };
-    const re = /([a-zA-Z\u4e00-\u9fff_]+)\s*[:=]\s*([^\n\|｜;；]+)(?=[\n\|｜;；]|$)/g;
+    const re = /([a-zA-Z\u4e00-\u9fff_]+)\s*[:=：]\s*([^\n\|｜;；]+)(?=[\n\|｜;；]|$)/g;
     let match;
     while ((match = re.exec(inner)) !== null) {
         const key = String(match[1]).trim().toLowerCase();
         const val = String(match[2]).trim();
         if (!val) continue;
-        if (['time', 'date', 'datetime', '时间', '日期', 'when'].includes(key)) data.time = val;
+        if (['time', 'date', 'datetime', '时间', '日期', 'when', 'timestamp'].includes(key)) data.time = val;
         if (['location', 'place', 'city', '地点', '地区', 'where', 'region', 'area'].includes(key)) data.location = val;
     }
     if (!data.time && !data.location) return null;
@@ -276,7 +276,7 @@ export function extractFromMessage(messageText, settings) {
         if (eraInfo) result.eraYear = eraInfo;
     }
 
-    if (settings.worldTagMode) {
+    if (settings.worldTagMode && (result.time || result.location)) {
         return result;
     }
     if (result.time || result.location) {
