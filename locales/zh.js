@@ -1,7 +1,7 @@
 export const ZH = {
     app: {
         name: '天气与日历小助手',
-        diagnoseTitle: '🧪 WorldEngine 诊断报告'
+        diagnoseTitle: '🧪 WorldEngine 诊断报告',
     },
     common: {
         none: '无',
@@ -40,7 +40,8 @@ export const ZH = {
         listSep: '、',
         bracketL: '（',
         bracketR: '）',
-        ownerSuffix: '的'
+        ownerSuffix: '的',
+        noUpperLimit: '无上限',
     },
     ui: {
         language: '界面语言',
@@ -54,7 +55,7 @@ export const ZH = {
             weather: '🌤 天气系统',
             cycle: '🩸 生理周期',
             actions: '🛠 操作',
-            status: '📊 当前状态'
+            status: '📊 当前状态',
         },
         countryOptions: {
             CN: '中国 (CN)',
@@ -66,7 +67,7 @@ export const ZH = {
             FR: '法国 (FR)',
             CA: '加拿大 (CA)',
             AU: '澳大利亚 (AU)',
-            RU: '俄罗斯 (RU)'
+            RU: '俄罗斯 (RU)',
         },
         general: {
             enabled: '启用插件',
@@ -76,13 +77,14 @@ export const ZH = {
             ancient: '古代',
             startTime: '自定义起始时间',
             startTimePh: '留空=从AI消息解析 | 格式：2025-06-18 08:00',
-            initLatest: '从最新AI初始化'
+            initLatest: '从最新AI初始化',
         },
         parser: {
             worldTagMode: '强制WORLD格式',
             worldTagModeHint: '启用后仅解析 [[WORLD]]...[[/WORLD]]，并禁用正则/字段解析。',
             worldTagPrompt: '注入WORLD提示词',
-            worldTagPromptHint: '关闭后插件不会注入[[WORLD]]格式要求（适合已在世界书/预设内固定格式）。',
+            worldTagPromptHint:
+                '关闭后插件不会注入[[WORLD]]格式要求（适合已在世界书/预设内固定格式）。',
             tagWrapper: 'XML标签名',
             tagWrapperPh: '如：horae（留空=自动检测）',
             timeKey: '时间字段Key',
@@ -98,7 +100,7 @@ export const ZH = {
             locationRegex: '地点正则(高级)',
             locationRegexPh: '留空=使用默认解析',
             autoDetect: '🔎 从最新AI消息自动检测',
-            autoDetectHint: '自动检测会扫描最新一条AI消息，提取标签名、时间Key、地点Key。'
+            autoDetectHint: '自动检测会扫描最新一条AI消息，提取标签名、时间Key、地点Key。',
         },
         calendar: {
             enable: '启用日历注入',
@@ -112,7 +114,7 @@ export const ZH = {
             charFilterPh: '搜索角色...',
             selectAll: '全选',
             clear: '清空',
-            charHint: '可多选角色卡，留空表示所有聊天都注入。'
+            charHint: '可多选角色卡，留空表示所有聊天都注入。',
         },
         weather: {
             enable: '启用天气',
@@ -128,11 +130,22 @@ export const ZH = {
             jitterPh: '如 2',
             rainBias: '雨天偏向(%)',
             rainBiasPh: '如 20',
-            reroll: '🎲 重新Roll天气'
+            reroll: '🎲 重新Roll天气',
+            manualHint: '手动覆盖当前日期天气（优先级高于自动获取）',
+            manualType: '手动天气类型',
+            manualTemp: '手动温度(℃)',
+            manualTempPh: '留空=沿用当前',
+            manualExtreme: '极端天气',
+            manualApply: '✅ 应用手动天气',
+            manualClear: '♻ 清除手动天气',
         },
         cycle: {
             enable: '启用生理周期',
             hint: '自动扫描角色/User设定中的性别关键词，为女性角色生成经期周期。',
+            minAge: '最小年龄',
+            useMaxAge: '启用上限',
+            maxAge: '最大年龄',
+            ageRangeHint: '年龄<{min} 或 {maxText} 将不启用经期模拟。',
             manualHint: '手动添加角色（适用于世界观/多角色卡）',
             manualNamePh: '角色名',
             manualGenderFemale: '女',
@@ -140,9 +153,9 @@ export const ZH = {
             manualGenderUnknown: '未知',
             manualAgePh: '年龄',
             manualAdd: '+添加',
-            manualAgeHint: '年龄<12 或 ≥55 将不启用经期模拟。',
+            manualAgeHint: '可填写年龄用于更真实的周期波动。',
             rescan: '🔄 重新扫描角色',
-            autoDetectInfo: '自动识别：{gender} (女{female}/男{male})'
+            autoDetectInfo: '自动识别：{gender} (女{female}/男{male})',
         },
         actions: {
             reinit: '📡 从最新AI重新初始化',
@@ -150,13 +163,14 @@ export const ZH = {
             testWeather: '🌦 测试Open-Meteo',
             testCalendar: '📅 测试节假日API',
             diagnose: '🧪 一键诊断并复制',
-            reset: '🗑 清除当前对话的世界状态'
+            reset: '🗑 清除当前对话的世界状态',
         },
         status: {
             waiting: '等待初始化...',
             preview: '👁 预览注入提示词',
-            noPrompt: '（无注入内容）'
-        }
+            noPrompt: '（无注入内容）',
+            floatingEnable: '启用悬浮状态窗',
+        },
     },
     toast: {
         parseFail: '未能从AI消息中解析出时间信息，世界时间未更新。',
@@ -188,7 +202,11 @@ export const ZH = {
         resetDone: '世界状态已清除',
         presetNoDelete: '没有可删除的预设',
         presetSaved: '正则预设已保存',
-        presetDeleted: '已删除预设'
+        presetDeleted: '已删除预设',
+        weatherManualApplied: '已应用手动天气: {weather}',
+        weatherManualCleared: '已清除手动天气覆盖',
+        cycleMinAgeInvalid: '最小年龄需为不小于0的整数',
+        cycleMaxAgeInvalid: '最大年龄需大于最小年龄',
     },
     status: {
         disabled: '❌ 插件已禁用',
@@ -200,9 +218,9 @@ export const ZH = {
         region: '🌐 地区: {region}',
         era: '🧭 时代: {era}',
         snapshots: '📦 快照数: {count}',
-        cycle: '🩸 生理周期追踪: {count}个角色'
+        cycle: '🩸 生理周期追踪: {count}个角色',
     },
-        diag: {
+    diag: {
         title: '==== WorldEngine 诊断报告 ====',
         end: '==== 诊断结束 ====',
         time: '- 诊断时间: {time}',
@@ -255,7 +273,7 @@ export const ZH = {
         parseReasonWorld: '强制WORLD模式但未检测到WORLD标签',
         parseReasonTimeFail: '命中时间文本但解析失败',
         parseReasonNoTime: '未命中任何时间',
-        parseRegexError: '正则错误: {err}'
+        parseRegexError: '正则错误: {err}',
     },
     prompt: {
         title: '[📅 World Engine - 世界状态]',
@@ -269,7 +287,8 @@ export const ZH = {
         eventAnniversary: '💝 今天是{owner}{name}{extra}！',
         cycleTitle: '角色生理状态：',
         cycleHint: '（生理状态应自然地影响角色的精力、情绪和行为，但不必每次都明确提及）',
-        worldTagGuide: '每轮回复末尾必须追加一行（不要省略、不要改写格式）：\n[[WORLD]] location=城市 | time=时间[[/WORLD]]\n\n要求：\n- location 必须包含“城市”（如：上海 / Tokyo / Paris）\n- 严格使用 key=value 格式，字段之间用 " | " 分隔\n- 该行必须单独一行，不能与正文混在一起\n- time 必须使用YYYY年MM月DD日 HH:mm或年号x年x月xx x时x刻的格式',
+        worldTagGuide:
+            '每轮回复末尾必须追加一行（不要省略、不要改写格式）：\n[[WORLD]] location=城市 | time=时间[[/WORLD]]\n\n要求：\n- location 必须包含“城市”（如：上海 / Tokyo / Paris）\n- 严格使用 key=value 格式，字段之间用 " | " 分隔\n- 该行必须单独一行，不能与正文混在一起\n- time 必须使用YYYY年MM月DD日 HH:mm或年号x年x月xx x时x刻的格式',
         end: '[/World Engine]',
         solarTerm: '节气：{name}',
         festival: '🎉 今日佳节：{name}',
@@ -280,8 +299,8 @@ export const ZH = {
             afternoon: '下午',
             evening: '傍晚',
             night: '夜晚',
-            midnight: '深夜'
-        }
+            midnight: '深夜',
+        },
     },
     weather: {
         current: '当前天气：{cn}（{en}），气温约{temp}°C',
@@ -317,7 +336,7 @@ export const ZH = {
             cloudy: '云开半掩',
             overcast: '天色阴沉',
             partly_cloudy: '晴间多云',
-            sunny_cold: '天晴而寒'
+            sunny_cold: '天晴而寒',
         },
         ancientTemp: {
             t0: '寒气逼人',
@@ -326,7 +345,7 @@ export const ZH = {
             t24: '温润宜人',
             t30: '微热',
             t36: '暑气渐盛',
-            t99: '酷热难耐'
+            t99: '酷热难耐',
         },
         ancientImpact: {
             light_rain: '行路宜携伞，衣衫勿湿',
@@ -348,7 +367,7 @@ export const ZH = {
             hail: '冰雹伤物，当避檐下',
             typhoon: '狂风大作，闭户避风',
             blizzard: '暴雪狂风，不可远行',
-            ice_storm: '冰雨骤急，树枝易折'
+            ice_storm: '冰雨骤急，树枝易折',
         },
         impact: {
             light_rain: '可能需要撑伞，户外活动略受影响',
@@ -370,8 +389,8 @@ export const ZH = {
             hail: '冰雹来袭，注意躲避',
             typhoon: '台风登陆，严禁外出',
             blizzard: '暴风雪肆虐，所有出行暂停',
-            ice_storm: '冰暴危险，树枝和电线可能断裂'
-        }
+            ice_storm: '冰暴危险，树枝和电线可能断裂',
+        },
     },
     cycle: {
         skipped: '本周期经期未至（偶发性跳过）',
@@ -388,7 +407,7 @@ export const ZH = {
         ancientFollicular: '卵泡期，气血渐盛，精神回升',
         ancientOvulation: '排卵期，精神充沛，情绪较佳',
         ancientPms: '经前时节，情绪易起伏，体感稍胀',
-        ancientLuteal: '黄体期，状态平稳'
+        ancientLuteal: '黄体期，状态平稳',
     },
     calendar: {
         noEvent: '尚未添加纪念日。',
@@ -403,21 +422,21 @@ export const ZH = {
             weekend: '周末',
             workday: '工作日',
             holiday: '节假日',
-            inLieu: '调休工作日'
+            inLieu: '调休工作日',
         },
         warnLoadFailed: '[WorldEngine] chinese-days CDN 加载失败，将使用 Nager.Date 替代',
         warnNagerFail: '[WorldEngine] Nager.Date API 请求失败',
         warnChineseDaysFail: '[WorldEngine] chinese-days 调用出错',
         traditionalFestivals: {
-            '正月初一': '春节',
-            '正月十五': '元宵',
-            '五月初五': '端午',
-            '七月初七': '七夕',
-            '八月十五': '中秋',
-            '九月初九': '重阳',
-            '腊月初八': '腊八',
-            '腊月廿三': '小年',
-            '腊月三十': '除夕'
-        }
-    }
+            正月初一: '春节',
+            正月十五: '元宵',
+            五月初五: '端午',
+            七月初七: '七夕',
+            八月十五: '中秋',
+            九月初九: '重阳',
+            腊月初八: '腊八',
+            腊月廿三: '小年',
+            腊月三十: '除夕',
+        },
+    },
 };

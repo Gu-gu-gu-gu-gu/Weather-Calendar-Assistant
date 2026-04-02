@@ -1,7 +1,7 @@
 export const EN = {
     app: {
         name: 'Weather & Calendar Assistant',
-        diagnoseTitle: '🧪 WorldEngine Diagnostic Report'
+        diagnoseTitle: '🧪 WorldEngine Diagnostic Report',
     },
     common: {
         none: 'None',
@@ -40,7 +40,8 @@ export const EN = {
         listSep: ', ',
         bracketL: '(',
         bracketR: ')',
-        ownerSuffix: "'s "
+        ownerSuffix: "'s ",
+        noUpperLimit: 'no upper limit',
     },
     ui: {
         language: 'UI Language',
@@ -54,7 +55,7 @@ export const EN = {
             weather: '🌤 Weather',
             cycle: '🩸 Cycle',
             actions: '🛠 Actions',
-            status: '📊 Status'
+            status: '📊 Status',
         },
         countryOptions: {
             CN: 'China (CN)',
@@ -66,7 +67,7 @@ export const EN = {
             FR: 'France (FR)',
             CA: 'Canada (CA)',
             AU: 'Australia (AU)',
-            RU: 'Russia (RU)'
+            RU: 'Russia (RU)',
         },
         general: {
             enabled: 'Enable plugin',
@@ -76,11 +77,12 @@ export const EN = {
             ancient: 'Ancient',
             startTime: 'Custom start time',
             startTimePh: 'Empty = parse from AI | Format: 2025-06-18 08:00',
-            initLatest: 'Init from latest AI'
+            initLatest: 'Init from latest AI',
         },
         parser: {
             worldTagMode: 'Force WORLD tag',
-            worldTagModeHint: 'When enabled, only parse [[WORLD]]...[[/WORLD]] and disable regex/field parsing.',
+            worldTagModeHint:
+                'When enabled, only parse [[WORLD]]...[[/WORLD]] and disable regex/field parsing.',
             worldTagPrompt: 'Inject WORLD prompt',
             worldTagPromptHint: 'Disable if you already enforce WORLD format elsewhere.',
             tagWrapper: 'XML tag name',
@@ -98,7 +100,7 @@ export const EN = {
             locationRegex: 'Location regex (advanced)',
             locationRegexPh: 'Empty = default parsing',
             autoDetect: '🔎 Auto-detect from latest AI',
-            autoDetectHint: 'Scan the latest AI message to detect tag name/time key/location key.'
+            autoDetectHint: 'Scan the latest AI message to detect tag name/time key/location key.',
         },
         calendar: {
             enable: 'Enable calendar injection',
@@ -112,7 +114,7 @@ export const EN = {
             charFilterPh: 'Search character...',
             selectAll: 'Select all',
             clear: 'Clear',
-            charHint: 'You can select multiple cards. Empty means inject to all chats.'
+            charHint: 'You can select multiple cards. Empty means inject to all chats.',
         },
         weather: {
             enable: 'Enable weather',
@@ -128,11 +130,22 @@ export const EN = {
             jitterPh: 'e.g. 2',
             rainBias: 'Rain bias (%)',
             rainBiasPh: 'e.g. 20',
-            reroll: '🎲 Reroll weather'
+            reroll: '🎲 Reroll weather',
+            manualHint: 'Manually override weather for current date (higher priority than auto)',
+            manualType: 'Manual weather type',
+            manualTemp: 'Manual temperature (℃)',
+            manualTempPh: 'Empty = keep current',
+            manualExtreme: 'Extreme weather',
+            manualApply: '✅ Apply manual weather',
+            manualClear: '♻ Clear manual weather',
         },
         cycle: {
             enable: 'Enable cycle',
             hint: 'Auto scan character/user descriptions and generate cycle for female characters.',
+            minAge: 'Min age',
+            useMaxAge: 'Use max age',
+            maxAge: 'Max age',
+            ageRangeHint: 'Age < {min} or {maxText} will disable cycle simulation.',
             manualHint: 'Add manually (for worldview / multi-cards)',
             manualNamePh: 'Name',
             manualGenderFemale: 'Female',
@@ -140,9 +153,9 @@ export const EN = {
             manualGenderUnknown: 'Unknown',
             manualAgePh: 'Age',
             manualAdd: 'Add',
-            manualAgeHint: 'Age < 12 or ≥55 will disable cycle simulation.',
+            manualAgeHint: 'Age helps generate more realistic cycle variation.',
             rescan: '🔄 Rescan characters',
-            autoDetectInfo: 'Auto: {gender} (F{female}/M{male})'
+            autoDetectInfo: 'Auto: {gender} (F{female}/M{male})',
         },
         actions: {
             reinit: '📡 Re-init from latest AI',
@@ -150,13 +163,14 @@ export const EN = {
             testWeather: '🌦 Test Open-Meteo',
             testCalendar: '📅 Test Holiday API',
             diagnose: '🧪 Diagnose & Copy',
-            reset: '🗑 Clear world state'
+            reset: '🗑 Clear world state',
         },
         status: {
             waiting: 'Waiting for initialization...',
             preview: '👁 Preview prompt',
-            noPrompt: '(No injection content)'
-        }
+            noPrompt: '(No injection content)',
+            floatingEnable: 'Enable floating status window',
+        },
     },
     toast: {
         parseFail: 'Failed to parse time from AI message. World time not updated.',
@@ -188,7 +202,11 @@ export const EN = {
         resetDone: 'World state cleared',
         presetNoDelete: 'No preset to delete',
         presetSaved: 'Regex preset saved',
-        presetDeleted: 'Preset deleted'
+        presetDeleted: 'Preset deleted',
+        weatherManualApplied: 'Manual weather applied: {weather}',
+        weatherManualCleared: 'Manual weather override cleared',
+        cycleMinAgeInvalid: 'Min age must be an integer >= 0',
+        cycleMaxAgeInvalid: 'Max age must be greater than min age',
     },
     status: {
         disabled: '❌ Plugin disabled',
@@ -200,9 +218,9 @@ export const EN = {
         region: '🌐 Region: {region}',
         era: '🧭 Era: {era}',
         snapshots: '📦 Snapshots: {count}',
-        cycle: '🩸 Cycle tracking: {count} characters'
+        cycle: '🩸 Cycle tracking: {count} characters',
     },
-        diag: {
+    diag: {
         title: '==== WorldEngine Diagnostic Report ====',
         end: '==== End of Report ====',
         time: '- Time: {time}',
@@ -255,7 +273,7 @@ export const EN = {
         parseReasonWorld: 'WORLD mode enabled but no WORLD tag found',
         parseReasonTimeFail: 'Time text matched but failed to parse',
         parseReasonNoTime: 'No time matched',
-        parseRegexError: 'Regex error: {err}'
+        parseRegexError: 'Regex error: {err}',
     },
     prompt: {
         title: '[📅 World Engine - World State]',
@@ -268,8 +286,10 @@ export const EN = {
         eventBirthday: '🎂 Today is {owner}{name}{extra}!',
         eventAnniversary: '💝 Today is {owner}{name}{extra}!',
         cycleTitle: 'Cycle status:',
-        cycleHint: '(Cycle should naturally affect energy, mood and behavior, without needing explicit mention every time.)',
-        worldTagGuide: 'At the end of each reply, append a single line (do not omit or change):\n[[WORLD]] location=City | time=Time[[/WORLD]]\n\nRules:\n- location must be a city name (e.g. Shanghai / Tokyo / Paris)\n- use key=value format, fields separated by " | "\n- must be on a separate line\n- time must be in YYYY-MM-DD HH:mm or era format',
+        cycleHint:
+            '(Cycle should naturally affect energy, mood and behavior, without needing explicit mention every time.)',
+        worldTagGuide:
+            'At the end of each reply, append a single line (do not omit or change):\n[[WORLD]] location=City | time=Time[[/WORLD]]\n\nRules:\n- location must be a city name (e.g. Shanghai / Tokyo / Paris)\n- use key=value format, fields separated by " | "\n- must be on a separate line\n- time must be in YYYY-MM-DD HH:mm or era format',
         end: '[/World Engine]',
         solarTerm: 'Solar term: {name}',
         festival: '🎉 Festival: {name}',
@@ -280,13 +300,14 @@ export const EN = {
             afternoon: 'Afternoon',
             evening: 'Evening',
             night: 'Night',
-            midnight: 'Late night'
-        }
+            midnight: 'Late night',
+        },
     },
     weather: {
         current: 'Current weather: {en} ({cn}), about {temp}°C',
         extreme: '⚠ Extreme weather alert! {en} may strongly affect travel and safety.',
-        extremeHint: 'Possible impacts: traffic disruption, power outage, building damage, etc. Characters should react accordingly.',
+        extremeHint:
+            'Possible impacts: traffic disruption, power outage, building damage, etc. Characters should react accordingly.',
         impactPrefix: 'Weather impact: {text}',
         ancientPrefix: 'Weather: {text}, {tempWord}',
         ancientExtreme: '⚠ Ominous signs, beware storms and disasters',
@@ -317,7 +338,7 @@ export const EN = {
             cloudy: 'cloudy',
             overcast: 'overcast',
             partly_cloudy: 'partly cloudy',
-            sunny_cold: 'clear and cold'
+            sunny_cold: 'clear and cold',
         },
         ancientTemp: {
             t0: 'freezing',
@@ -326,7 +347,7 @@ export const EN = {
             t24: 'mild',
             t30: 'warm',
             t36: 'hot',
-            t99: 'scorching'
+            t99: 'scorching',
         },
         ancientImpact: {
             light_rain: 'Carry an umbrella; keep clothes dry',
@@ -348,7 +369,7 @@ export const EN = {
             hail: 'Hail damage, seek shelter',
             typhoon: 'Gale force wind, stay indoors',
             blizzard: 'Severe storm, no travel',
-            ice_storm: 'Ice damage, branches may fall'
+            ice_storm: 'Ice damage, branches may fall',
         },
         impact: {
             light_rain: 'Umbrella may be needed; light outdoor impact',
@@ -370,8 +391,8 @@ export const EN = {
             hail: 'Hailstorm; seek shelter',
             typhoon: 'Typhoon; do not go out',
             blizzard: 'Blizzard; all travel stops',
-            ice_storm: 'Ice storm; trees and wires may break'
-        }
+            ice_storm: 'Ice storm; trees and wires may break',
+        },
     },
     cycle: {
         skipped: 'Cycle skipped (rare)',
@@ -388,7 +409,7 @@ export const EN = {
         ancientFollicular: 'Follicular phase, energy recovers',
         ancientOvulation: 'Ovulation phase, high spirits',
         ancientPms: 'Premenstrual, mood fluctuates',
-        ancientLuteal: 'Luteal phase, steady state'
+        ancientLuteal: 'Luteal phase, steady state',
     },
     calendar: {
         noEvent: 'No events yet.',
@@ -403,21 +424,21 @@ export const EN = {
             weekend: 'Weekend',
             workday: 'Workday',
             holiday: 'Holiday',
-            inLieu: 'Make-up workday'
+            inLieu: 'Make-up workday',
         },
         warnLoadFailed: '[WorldEngine] chinese-days CDN failed, fallback to Nager.Date',
         warnNagerFail: '[WorldEngine] Nager.Date API request failed',
         warnChineseDaysFail: '[WorldEngine] chinese-days invocation failed',
         traditionalFestivals: {
-            '正月初一': 'Spring Festival',
-            '正月十五': 'Lantern Festival',
-            '五月初五': 'Dragon Boat Festival',
-            '七月初七': 'Qixi Festival',
-            '八月十五': 'Mid-Autumn Festival',
-            '九月初九': 'Double Ninth Festival',
-            '腊月初八': 'Laba Festival',
-            '腊月廿三': 'Little New Year',
-            '腊月三十': 'New Year’s Eve'
-        }
-    }
+            正月初一: 'Spring Festival',
+            正月十五: 'Lantern Festival',
+            五月初五: 'Dragon Boat Festival',
+            七月初七: 'Qixi Festival',
+            八月十五: 'Mid-Autumn Festival',
+            九月初九: 'Double Ninth Festival',
+            腊月初八: 'Laba Festival',
+            腊月廿三: 'Little New Year',
+            腊月三十: 'New Year’s Eve',
+        },
+    },
 };
