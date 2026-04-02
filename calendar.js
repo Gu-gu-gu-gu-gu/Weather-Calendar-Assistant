@@ -14,9 +14,19 @@ export async function loadChineseDays() {
         await new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/chinese-days';
-            const timer = setTimeout(() => { chineseDaysLoadFailed = true; reject(new Error('timeout')); }, 10000);
-            script.onload = () => { clearTimeout(timer); chineseDaysLoaded = true; resolve(); };
-            script.onerror = () => { chineseDaysLoadFailed = true; reject(); };
+            const timer = setTimeout(() => {
+                chineseDaysLoadFailed = true;
+                reject(new Error('timeout'));
+            }, 10000);
+            script.onload = () => {
+                clearTimeout(timer);
+                chineseDaysLoaded = true;
+                resolve();
+            };
+            script.onerror = () => {
+                chineseDaysLoadFailed = true;
+                reject();
+            };
             document.head.appendChild(script);
         });
     } catch (e) {
@@ -28,7 +38,9 @@ async function fetchNagerHolidays(year, countryCode) {
     const key = `${year}_${countryCode}`;
     if (nagerCache[key]) return nagerCache[key];
     try {
-        const resp = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${countryCode}`);
+        const resp = await fetch(
+            `https://date.nager.at/api/v3/PublicHolidays/${year}/${countryCode}`
+        );
         if (resp.ok) {
             const data = await resp.json();
             nagerCache[key] = data;
@@ -118,7 +130,7 @@ export async function getHolidayInfo(dateStr, countryCode) {
         }
     } else {
         const holidays = await fetchNagerHolidays(year, countryCode);
-        const match = holidays.find(h => h.date === dateStr);
+        const match = holidays.find((h) => h.date === dateStr);
         if (match) {
             info.isHoliday = true;
             info.holidayName = match.name;
@@ -126,7 +138,9 @@ export async function getHolidayInfo(dateStr, countryCode) {
             info.dayType = t('calendar.dayType.holiday');
         } else {
             info.isWorkday = !isWeekend;
-            info.dayType = isWeekend ? t('calendar.dayType.weekend') : t('calendar.dayType.workday');
+            info.dayType = isWeekend
+                ? t('calendar.dayType.weekend')
+                : t('calendar.dayType.workday');
         }
     }
 
@@ -141,7 +155,12 @@ export async function getNextHoliday(dateStr, countryCode, maxDays = 60) {
         const ds = formatDate(next);
         const info = await getHolidayInfo(ds, countryCode);
         if (info.isHoliday && info.holidayName && !isWeekdayName(info.holidayName)) {
-            return { dateStr: ds, name: info.holidayName, localName: info.holidayLocalName, daysUntil: i };
+            return {
+                dateStr: ds,
+                name: info.holidayName,
+                localName: info.holidayLocalName,
+                daysUntil: i,
+            };
         }
     }
     return null;
@@ -168,7 +187,15 @@ function formatDate(d) {
 function isWeekdayName(text) {
     if (!text) return false;
     const s = String(text).toLowerCase();
-    if (s.includes('monday') || s.includes('tuesday') || s.includes('wednesday') || s.includes('thursday') || s.includes('friday') || s.includes('saturday') || s.includes('sunday')) {
+    if (
+        s.includes('monday') ||
+        s.includes('tuesday') ||
+        s.includes('wednesday') ||
+        s.includes('thursday') ||
+        s.includes('friday') ||
+        s.includes('saturday') ||
+        s.includes('sunday')
+    ) {
         return true;
     }
     if (/周[一二三四五六日天]/.test(text)) return true;

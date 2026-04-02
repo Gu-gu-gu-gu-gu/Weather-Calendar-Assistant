@@ -21,7 +21,11 @@ export const DEFAULT_SETTINGS = {
     defaultCity: '',
     weatherContinuity: 70,
     weatherTempJitter: 2,
+    weatherOverrides: {},
     cycleEnabled: true,
+    cycleMinAge: 12,
+    cycleUseMaxAge: true,
+    cycleMaxAge: 55,
     genderOverrides: {},
     ageOverrides: {},
     manualCharacters: [],
@@ -32,7 +36,9 @@ export const DEFAULT_SETTINGS = {
     ancientLocationMap: [],
     regexPresets: [],
     regexPresetLastId: '',
-    uiLanguage: 'auto'
+    uiLanguage: 'auto',
+    floatingStatusEnabled: false,
+    floatingStatusPos: { x: 20, y: 120 },
 };
 
 export function getSettings() {
@@ -63,7 +69,7 @@ export function getChatState() {
             eraYearLabel: '',
             eraYearBase: null,
             eraYearBaseGregorian: null,
-            randomBaseYear: null
+            randomBaseYear: null,
         };
     }
     return context.chatMetadata.worldEngine;
@@ -86,7 +92,7 @@ export function saveSnapshot(messageId) {
         eraYearLabel: cs.eraYearLabel,
         eraYearBase: cs.eraYearBase,
         eraYearBaseGregorian: cs.eraYearBaseGregorian,
-        randomBaseYear: cs.randomBaseYear
+        randomBaseYear: cs.randomBaseYear,
     };
     saveState();
 }
@@ -110,7 +116,10 @@ export function restoreSnapshot(messageId) {
 
 export function findPreviousSnapshotId(messageId) {
     const cs = getChatState();
-    const ids = Object.keys(cs.snapshots).map(Number).filter(i => i < messageId).sort((a, b) => b - a);
+    const ids = Object.keys(cs.snapshots)
+        .map(Number)
+        .filter((i) => i < messageId)
+        .sort((a, b) => b - a);
     return ids.length > 0 ? ids[0] : null;
 }
 

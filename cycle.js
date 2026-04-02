@@ -1,21 +1,88 @@
 import { t } from './i18n.js';
 
 const FEMALE_KEYWORDS = [
-    '女', '少女', '女性', '女孩', '女人', '姐', '妹', '母', '妻', '嫁', '公主', '女王',
-    '皇后', '女仆', '侍女', '她的', '闺', '娘', '淑女', '小姐',
-    'female', 'girl', 'woman', 'she', 'her', 'lady', 'maiden', 'wife', 'princess', 'queen',
+    '女',
+    '少女',
+    '女性',
+    '女孩',
+    '女人',
+    '姐',
+    '妹',
+    '母',
+    '妻',
+    '嫁',
+    '公主',
+    '女王',
+    '皇后',
+    '女仆',
+    '侍女',
+    '她的',
+    '闺',
+    '娘',
+    '淑女',
+    '小姐',
+    'female',
+    'girl',
+    'woman',
+    'she',
+    'her',
+    'lady',
+    'maiden',
+    'wife',
+    'princess',
+    'queen',
 ];
 
 const MALE_KEYWORDS = [
-    '男', '少年', '男性', '男孩', '男人', '兄', '弟', '父', '夫', '他的', '公', '王子',
-    '勇者', '骑士', '先生', '少爷',
-    'male', 'boy', 'man', 'he', 'him', 'his', 'prince', 'king', 'lord', 'sir',
+    '男',
+    '少年',
+    '男性',
+    '男孩',
+    '男人',
+    '兄',
+    '弟',
+    '父',
+    '夫',
+    '他的',
+    '公',
+    '王子',
+    '勇者',
+    '骑士',
+    '先生',
+    '少爷',
+    'male',
+    'boy',
+    'man',
+    'he',
+    'him',
+    'his',
+    'prince',
+    'king',
+    'lord',
+    'sir',
 ];
+
+function getAgeGateOptions(options = {}) {
+    const minAge = Number.isInteger(parseInt(options.minAge)) ? parseInt(options.minAge) : 12;
+    const useMaxAge = options.useMaxAge !== false;
+    let maxAge = Number.isInteger(parseInt(options.maxAge)) ? parseInt(options.maxAge) : 55;
+    if (maxAge <= minAge) maxAge = minAge + 1;
+    return { minAge, useMaxAge, maxAge };
+}
+
+function isAgeAllowed(age, options = {}) {
+    if (typeof age !== 'number') return true;
+    const gate = getAgeGateOptions(options);
+    if (age < gate.minAge) return false;
+    if (gate.useMaxAge && age >= gate.maxAge) return false;
+    return true;
+}
 
 export function detectGenderInfo(descriptionText) {
     if (!descriptionText) return { gender: 'unknown', femaleCount: 0, maleCount: 0 };
     const lower = descriptionText.toLowerCase();
-    let f = 0, m = 0;
+    let f = 0,
+        m = 0;
     for (const kw of FEMALE_KEYWORDS) {
         if (lower.includes(kw.toLowerCase())) f++;
     }
@@ -31,14 +98,14 @@ export function detectGender(descriptionText) {
     return detectGenderInfo(descriptionText).gender;
 }
 
-export function initCycleForCharacter(characterName, worldDateStr, age = null) {
+export function initCycleForCharacter(characterName, worldDateStr, age = null, options = {}) {
     const baseDate = new Date(worldDateStr + 'T00:00:00');
 
     let cycleLength = 28 + Math.floor(Math.random() * 7) - 3;
     let periodDuration = 3 + Math.floor(Math.random() * 5);
 
     if (typeof age === 'number') {
-        if (age < 12 || age >= 55) return null;
+        if (!isAgeAllowed(age, options)) return null;
         if (age <= 17) {
             cycleLength = 30 + Math.floor(Math.random() * 7);
             periodDuration = 3 + Math.floor(Math.random() * 4);
@@ -72,7 +139,7 @@ export function getCycleStatus(cycleData, currentDateStr) {
 
     const current = new Date(currentDateStr + 'T00:00:00');
     const lastStart = new Date(cycleData.lastPeriodStart + 'T00:00:00');
-    const diffDays = Math.floor((current - lastStart) / (86400000));
+    const diffDays = Math.floor((current - lastStart) / 86400000);
 
     if (diffDays < 0) {
         return { phase: 'unknown', dayInCycle: 0, onPeriod: false, description: '' };

@@ -15,6 +15,7 @@ import {
     shouldRerollWeather,
     getWeatherForDate,
     getHourlyTemperature,
+    buildWeatherOverrideKey,
 } from './weather.js';
 import { detectGenderInfo, initCycleForCharacter, getCycleStatus } from './cycle.js';
 import { updateInjection, buildInjectionPrompt } from './injector.js';
@@ -22,6 +23,34 @@ import { t } from './i18n.js';
 
 const SLUG = 'world-engine';
 let panelMounted = false;
+
+const WEATHER_TYPE_OPTIONS = [
+    { type: 'sunny', cn: '晴朗', en: 'Sunny' },
+    { type: 'partly_cloudy', cn: '晴间多云', en: 'Partly Cloudy' },
+    { type: 'cloudy', cn: '多云', en: 'Cloudy' },
+    { type: 'overcast', cn: '阴天', en: 'Overcast' },
+    { type: 'light_rain', cn: '小雨', en: 'Light Rain' },
+    { type: 'moderate_rain', cn: '中雨', en: 'Moderate Rain' },
+    { type: 'heavy_rain', cn: '大雨', en: 'Heavy Rain' },
+    { type: 'shower', cn: '阵雨', en: 'Shower' },
+    { type: 'thunderstorm', cn: '雷暴', en: 'Thunderstorm' },
+    { type: 'foggy', cn: '雾', en: 'Foggy' },
+    { type: 'windy', cn: '大风', en: 'Windy' },
+    { type: 'humid', cn: '闷热潮湿', en: 'Humid' },
+    { type: 'sunny_hot', cn: '晴热', en: 'Sunny & Hot' },
+    { type: 'heatwave', cn: '高温热浪', en: 'Heatwave' },
+    { type: 'light_snow', cn: '小雪', en: 'Light Snow' },
+    { type: 'moderate_snow', cn: '中雪', en: 'Moderate Snow' },
+    { type: 'heavy_snow', cn: '大雪', en: 'Heavy Snow' },
+    { type: 'sleet', cn: '雨夹雪', en: 'Sleet' },
+    { type: 'frost', cn: '霜', en: 'Frost' },
+    { type: 'hail', cn: '冰雹', en: 'Hail' },
+    { type: 'typhoon', cn: '台风', en: 'Typhoon' },
+    { type: 'blizzard', cn: '暴风雪', en: 'Blizzard' },
+    { type: 'ice_storm', cn: '冰暴', en: 'Ice Storm' },
+    { type: 'sunny_cold', cn: '晴冷', en: 'Sunny & Cold' },
+    { type: 'windy_cold', cn: '寒风刺骨', en: 'Biting Wind' },
+];
 
 jQuery(() => {
     const context = SillyTavern.getContext();
@@ -37,9 +66,12 @@ jQuery(() => {
             $('#extensions_settings').append(panelHtml);
         }
 
+        enhanceSettingsUI();
         bindSettingsEvents();
         loadSettingsToUI();
+        ensureFloatingStatusWindow();
         refreshStatusDisplay();
+        applyFloatingStatusVisibility();
 
         context.eventSource.on(context.eventTypes.MESSAGE_RECEIVED, onMessageReceived);
         context.eventSource.on(context.eventTypes.MESSAGE_EDITED, onMessageEdited);
@@ -297,6 +329,7 @@ function updateCycleStates(dateStr) {
     const settings = getSettings();
     const cs = getChatState();
     const context = SillyTavern.getContext();
+    const ageCfg = getCycleAgeConfig(settings);
 
     const charDescription = getCharacterDescription();
     const userDescription = getUserDescription();
@@ -312,12 +345,12 @@ function updateCycleStates(dateStr) {
         const age = normalizeAgeValue(settings.ageOverrides?.[name]);
 
         if (gender === 'female') {
-            if (age !== null && (age < 12 || age >= 55)) {
+            if (isAgeBlockedForCycle(age, ageCfg)) {
                 delete cs.cycleStates[name];
                 continue;
             }
             if (!cs.cycleStates[name]) {
-                const init = initCycleForCharacter(name, dateStr, age);
+                const init = initCycleForCharacter(name, dateStr, age, ageCfg);
                 if (init) cs.cycleStates[name] = init;
             } else if (age !== null) {
                 cs.cycleStates[name].age = age;
@@ -335,12 +368,12 @@ function updateCycleStates(dateStr) {
             if (!name) continue;
 
             if (gender === 'female') {
-                if (age !== null && (age < 12 || age >= 55)) {
+                if (isAgeBlockedForCycle(age, ageCfg)) {
                     delete cs.cycleStates[name];
                     continue;
                 }
                 if (!cs.cycleStates[name]) {
-                    const init = initCycleForCharacter(name, dateStr, age);
+                    const init = initCycleForCharacter(name, dateStr, age, ageCfg);
                     if (init) cs.cycleStates[name] = init;
                 } else if (age !== null) {
                     cs.cycleStates[name].age = age;
@@ -350,6 +383,38 @@ function updateCycleStates(dateStr) {
             }
         }
     }
+}
+
+function getCycleAgeConfig(settings = getSettings()) {
+    const minAge = Number.isInteger(parseInt(settings.cycleMinAge))
+        ? parseInt(settings.cycleMinAge)
+        : 12;
+    const cycleUseMaxAge = settings.cycleUseMaxAge !== false;
+    let maxAge = Number.isInteger(parseInt(settings.cycleMaxAge))
+        ? parseInt(settings.cycleMaxAge)
+        : 55;
+    if (maxAge <= minAge) maxAge = minAge + 1;
+    return { minAge, useMaxAge: cycleUseMaxAge, maxAge };
+}
+
+function isAgeBlockedForCycle(age, ageCfg) {
+    if (age === null) return false;
+    if (age < ageCfg.minAge) return true;
+    if (ageCfg.useMaxAge && age >= ageCfg.maxAge) return true;
+    return false;
+}
+
+function getCycleAgeHintText() {
+    const cfg = getCycleAgeConfig();
+    const maxText = cfg.useMaxAge ? `≥${cfg.maxAge}` : t('common.noUpperLimit');
+    return t('ui.cycle.ageRangeHint', { min: cfg.minAge, maxText });
+}
+
+function updateCycleAgeHintUI() {
+    const hintEl = $('#we-cycle-age-hint');
+    if (hintEl.length) hintEl.text(getCycleAgeHintText());
+    const cfg = getCycleAgeConfig();
+    $('#we-cycle-max-age').prop('disabled', !cfg.useMaxAge);
 }
 
 function normalizeAgeValue(v) {
@@ -1290,6 +1355,67 @@ function bindSettingsEvents() {
             updateInjection();
         }
     });
+
+    $('#we-floating-enabled').on('change', function () {
+        getSettings().floatingStatusEnabled = this.checked;
+        saveState();
+        applyFloatingStatusVisibility();
+    });
+
+    $('#we-apply-manual-weather').on('click', async function () {
+        await applyManualWeatherOverrideForCurrent();
+    });
+
+    $('#we-clear-manual-weather').on('click', async function () {
+        await clearManualWeatherOverrideForCurrent();
+    });
+
+    $('#we-cycle-min-age').on('change', function () {
+        const v = parseInt(this.value);
+        if (isNaN(v) || v < 0) {
+            toastr.warning(t('toast.cycleMinAgeInvalid'), t('app.name'));
+            $(this).val(getSettings().cycleMinAge ?? 12);
+            return;
+        }
+        getSettings().cycleMinAge = v;
+        saveState();
+        updateCycleAgeHintUI();
+        if (getChatState().currentTime) {
+            updateCycleStates(getChatState().currentTime.split('T')[0]);
+            refreshStatusDisplay();
+            updateInjection();
+        }
+    });
+
+    $('#we-cycle-use-max-age').on('change', function () {
+        getSettings().cycleUseMaxAge = this.checked;
+        saveState();
+        updateCycleAgeHintUI();
+        if (getChatState().currentTime) {
+            updateCycleStates(getChatState().currentTime.split('T')[0]);
+            refreshStatusDisplay();
+            updateInjection();
+        }
+    });
+
+    $('#we-cycle-max-age').on('change', function () {
+        const s = getSettings();
+        const minAge = Number.isInteger(parseInt(s.cycleMinAge)) ? parseInt(s.cycleMinAge) : 12;
+        const v = parseInt(this.value);
+        if (isNaN(v) || v <= minAge) {
+            toastr.warning(t('toast.cycleMaxAgeInvalid'), t('app.name'));
+            $(this).val(s.cycleMaxAge ?? 55);
+            return;
+        }
+        s.cycleMaxAge = v;
+        saveState();
+        updateCycleAgeHintUI();
+        if (getChatState().currentTime) {
+            updateCycleStates(getChatState().currentTime.split('T')[0]);
+            refreshStatusDisplay();
+            updateInjection();
+        }
+    });
 }
 
 function updateWorldTagUI() {
@@ -1331,6 +1457,13 @@ function loadSettingsToUI() {
     $('#we-weather-continuity').val(s.weatherContinuity);
     $('#we-weather-jitter').val(s.weatherTempJitter);
     $('#we-cycle-enabled').prop('checked', s.cycleEnabled);
+
+    if ($('#we-cycle-min-age').length) $('#we-cycle-min-age').val(s.cycleMinAge ?? 12);
+    if ($('#we-cycle-use-max-age').length) $('#we-cycle-use-max-age').prop('checked', s.cycleUseMaxAge !== false);
+    if ($('#we-cycle-max-age').length) $('#we-cycle-max-age').val(s.cycleMaxAge ?? 55);
+    if ($('#we-floating-enabled').length) $('#we-floating-enabled').prop('checked', !!s.floatingStatusEnabled);
+
+    updateCycleAgeHintUI();
     renderEventCharacterOptions();
     renderEventList();
     renderAncientMapList();
@@ -1338,6 +1471,9 @@ function loadSettingsToUI() {
     renderManualList();
     renderCycleList();
     updateWorldTagUI();
+    applyFloatingStatusVisibility();
+    applyFloatingStatusPosition();
+    syncWeatherManualEditorFromState();
 }
 
 function renderEventList() {
@@ -1610,11 +1746,7 @@ function refreshStatusDisplay() {
         if (cs.weatherState) {
             const src = cs.weatherState.source ? `(${cs.weatherState.source})` : '';
             const extreme = cs.weatherState.extreme ? t('common.extreme') : '';
-            const displayTemp = getHourlyTemperature(
-                cs.weatherState,
-                cs.currentTime,
-                cs.currentLocation
-            );
+            const displayTemp = getHourlyTemperature(cs.weatherState, cs.currentTime, cs.currentLocation);
             lines.push(
                 t('status.weather', {
                     weather: cs.weatherState.cn,
@@ -1627,10 +1759,7 @@ function refreshStatusDisplay() {
         lines.push(t('status.region', { region: settings.countryCode }));
         lines.push(
             t('status.era', {
-                era:
-                    settings.worldEra === 'ancient'
-                        ? t('ui.general.ancient')
-                        : t('ui.general.modern'),
+                era: settings.worldEra === 'ancient' ? t('ui.general.ancient') : t('ui.general.modern'),
             })
         );
         lines.push(t('status.snapshots', { count: Object.keys(cs.snapshots).length }));
@@ -1639,10 +1768,265 @@ function refreshStatusDisplay() {
         if (cycleCount > 0) lines.push(t('status.cycle', { count: cycleCount }));
     }
 
-    $('#we-status-display').text(lines.join('\n'));
+    const statusText = lines.join('\n');
+    $('#we-status-display').text(statusText);
+    $('#we-floating-status-display').text(statusText);
     renderGenderOverrideList();
     renderManualList();
     renderCycleList();
+    syncWeatherManualEditorFromState();
+}
+
+function enhanceSettingsUI() {
+    if (!$('#we-settings-panel').length) return;
+
+    if (!$('#we-weather-manual-type').length) {
+        const weatherBody = $('.we-section-body[data-section="weather"]');
+        const typeOptions = WEATHER_TYPE_OPTIONS.map(
+            (x) => `<option value="${x.type}">${x.cn} / ${x.en}</option>`
+        ).join('');
+        weatherBody.append(`
+            <div class="we-hint" id="we-weather-manual-hint">${t('ui.weather.manualHint')}</div>
+            <div class="we-row">
+                <label>${t('ui.weather.manualType')}</label>
+                <select id="we-weather-manual-type">${typeOptions}</select>
+            </div>
+            <div class="we-row">
+                <label>${t('ui.weather.manualTemp')}</label>
+                <input type="text" id="we-weather-manual-temp" placeholder="${t('ui.weather.manualTempPh')}" style="width:90px;" />
+                <label style="min-width:auto;">${t('ui.weather.manualExtreme')}</label>
+                <input type="checkbox" id="we-weather-manual-extreme" />
+            </div>
+            <div class="we-row">
+                <button class="we-btn" id="we-apply-manual-weather">${t('ui.weather.manualApply')}</button>
+                <button class="we-btn we-btn-danger" id="we-clear-manual-weather">${t('ui.weather.manualClear')}</button>
+            </div>
+        `);
+    }
+
+    if (!$('#we-cycle-min-age').length) {
+        const cycleBody = $('.we-section-body[data-section="cycle"]');
+        const firstHint = cycleBody.find('.we-hint').first();
+        firstHint.after(`
+            <div class="we-row">
+                <label>${t('ui.cycle.minAge')}</label>
+                <input type="text" id="we-cycle-min-age" style="width:70px;" />
+                <label style="min-width:auto;">${t('ui.cycle.useMaxAge')}</label>
+                <input type="checkbox" id="we-cycle-use-max-age" />
+                <label style="min-width:auto;">${t('ui.cycle.maxAge')}</label>
+                <input type="text" id="we-cycle-max-age" style="width:70px;" />
+            </div>
+            <div class="we-hint" id="we-cycle-age-hint"></div>
+        `);
+    }
+
+    if (!$('#we-floating-enabled').length) {
+        const statusBody = $('.we-section-body[data-section="status"]');
+        statusBody.prepend(`
+            <div class="we-row">
+                <label>${t('ui.status.floatingEnable')}</label>
+                <input type="checkbox" id="we-floating-enabled" />
+            </div>
+        `);
+    }
+}
+
+function getWeatherTypeMeta(type) {
+    return WEATHER_TYPE_OPTIONS.find((x) => x.type === type) || WEATHER_TYPE_OPTIONS[0];
+}
+
+async function applyManualWeatherOverrideForCurrent() {
+    const cs = getChatState();
+    const settings = getSettings();
+    if (!cs.currentTime) {
+        toastr.warning(t('toast.noWorldTime'), t('app.name'));
+        return;
+    }
+
+    const dateStr = cs.currentTime.split('T')[0];
+    const type = $('#we-weather-manual-type').val() || 'sunny';
+    const meta = getWeatherTypeMeta(type);
+    const rawTemp = $('#we-weather-manual-temp').val().trim();
+    let temp = parseInt(rawTemp);
+    if (isNaN(temp)) {
+        temp = typeof cs.weatherState?.temp === 'number' ? cs.weatherState.temp : 20;
+    }
+    const extreme = $('#we-weather-manual-extreme').prop('checked') === true;
+
+    if (!settings.weatherOverrides) settings.weatherOverrides = {};
+    const key = buildWeatherOverrideKey(dateStr, cs.currentLocation, settings);
+    settings.weatherOverrides[key] = {
+        type,
+        cn: meta.cn,
+        en: meta.en,
+        temp,
+        extreme,
+    };
+
+    cs.weatherState = await getWeatherForDate(dateStr, cs.currentLocation, settings, null);
+    saveState();
+    refreshStatusDisplay();
+    await updateInjection();
+    toastr.success(t('toast.weatherManualApplied', { weather: cs.weatherState.cn }), t('app.name'));
+}
+
+async function clearManualWeatherOverrideForCurrent() {
+    const cs = getChatState();
+    const settings = getSettings();
+    if (!cs.currentTime) {
+        toastr.warning(t('toast.noWorldTime'), t('app.name'));
+        return;
+    }
+
+    const dateStr = cs.currentTime.split('T')[0];
+    const key = buildWeatherOverrideKey(dateStr, cs.currentLocation, settings);
+    if (settings.weatherOverrides && settings.weatherOverrides[key]) {
+        delete settings.weatherOverrides[key];
+    }
+
+    cs.weatherState = await getWeatherForDate(dateStr, cs.currentLocation, settings, null);
+    saveState();
+    refreshStatusDisplay();
+    await updateInjection();
+    toastr.success(t('toast.weatherManualCleared'), t('app.name'));
+}
+
+function syncWeatherManualEditorFromState() {
+    const cs = getChatState();
+    if (!$('#we-weather-manual-type').length) return;
+    if (!cs.weatherState) return;
+    $('#we-weather-manual-type').val(cs.weatherState.type || 'sunny');
+    $('#we-weather-manual-temp').val(
+        typeof cs.weatherState.temp === 'number' ? String(cs.weatherState.temp) : ''
+    );
+    $('#we-weather-manual-extreme').prop('checked', !!cs.weatherState.extreme);
+}
+
+function ensureFloatingStatusWindow() {
+    if ($('#we-floating-status').length) return;
+    $('body').append(`
+        <div id="we-floating-status" class="we-floating-status hidden">
+            <div id="we-floating-status-header" class="we-floating-status-header">
+                <span>${t('ui.sections.status')}</span>
+                <div class="we-floating-status-actions">
+                    <button id="we-floating-status-drag-handle" class="we-floating-status-drag-handle">⠿</button>
+                    <button id="we-floating-status-close" class="we-floating-status-close">×</button>
+                </div>
+            </div>
+            <pre id="we-floating-status-display" class="we-floating-status-display"></pre>
+        </div>
+    `);
+
+    $('#we-floating-status-close').on('click', function () {
+        const s = getSettings();
+        s.floatingStatusEnabled = false;
+        $('#we-floating-enabled').prop('checked', false);
+        saveState();
+        applyFloatingStatusVisibility();
+    });
+
+    const box = $('#we-floating-status');
+    const dragHandle = $('#we-floating-status-drag-handle');
+
+    let dragging = false;
+    let pointerId = null;
+    let startX = 0;
+    let startY = 0;
+    let baseLeft = 0;
+    let baseTop = 0;
+
+    dragHandle.on('pointerdown', function (e) {
+        if (e.button !== undefined && e.button !== 0) return;
+
+        dragging = true;
+        pointerId = e.pointerId;
+        startX = e.clientX;
+        startY = e.clientY;
+        baseLeft = parseFloat(box.css('left')) || 0;
+        baseTop = parseFloat(box.css('top')) || 0;
+
+        const el = dragHandle.get(0);
+        if (el && el.setPointerCapture) {
+            el.setPointerCapture(pointerId);
+        }
+
+        e.preventDefault();
+    });
+
+    dragHandle.on('pointermove', function (e) {
+        if (!dragging || e.pointerId !== pointerId) return;
+
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+
+        let left = baseLeft + dx;
+        let top = baseTop + dy;
+
+        const maxX = Math.max(0, window.innerWidth - box.outerWidth() - 8);
+        const maxY = Math.max(0, window.innerHeight - box.outerHeight() - 8);
+
+        left = Math.max(0, Math.min(maxX, left));
+        top = Math.max(0, Math.min(maxY, top));
+
+        box.css({ left: `${Math.round(left)}px`, top: `${Math.round(top)}px` });
+        e.preventDefault();
+    });
+
+    function stopDrag(e) {
+        if (!dragging) return;
+        if (e && e.pointerId !== undefined && e.pointerId !== pointerId) return;
+
+        dragging = false;
+        const s = getSettings();
+        const left = parseFloat(box.css('left')) || 0;
+        const top = parseFloat(box.css('top')) || 0;
+        s.floatingStatusPos = { x: Math.round(left), y: Math.round(top) };
+        saveState();
+
+        if (pointerId !== null) {
+            const el = dragHandle.get(0);
+            if (el && el.releasePointerCapture) {
+                try {
+                    el.releasePointerCapture(pointerId);
+                } catch (_) {}
+            }
+        }
+        pointerId = null;
+    }
+
+    dragHandle.on('pointerup', stopDrag);
+    dragHandle.on('pointercancel', stopDrag);
+    dragHandle.on('lostpointercapture', stopDrag);
+
+    $(window).on('resize.weFloating', function () {
+        applyFloatingStatusPosition();
+    });
+}
+
+function applyFloatingStatusPosition() {
+    const s = getSettings();
+    const box = $('#we-floating-status');
+    if (!box.length) return;
+
+    let x = Number.isInteger(parseInt(s.floatingStatusPos?.x)) ? parseInt(s.floatingStatusPos.x) : 20;
+    let y = Number.isInteger(parseInt(s.floatingStatusPos?.y)) ? parseInt(s.floatingStatusPos.y) : 120;
+
+    const maxX = Math.max(0, window.innerWidth - box.outerWidth() - 8);
+    const maxY = Math.max(0, window.innerHeight - box.outerHeight() - 8);
+
+    x = Math.max(0, Math.min(maxX, x));
+    y = Math.max(0, Math.min(maxY, y));
+
+    box.css({ left: `${x}px`, top: `${y}px` });
+}
+
+function applyFloatingStatusVisibility() {
+    const s = getSettings();
+    const box = $('#we-floating-status');
+    if (!box.length) return;
+    if (s.floatingStatusEnabled) box.removeClass('hidden');
+    else box.addClass('hidden');
+    applyFloatingStatusPosition();
 }
 
 function getLatestAiMessage() {
@@ -1672,10 +2056,7 @@ function escapeRegexDiag(str) {
 function cleanDiagFieldValue(raw) {
     let s = String(raw || '').trim();
     s = s.replace(/^\s*[|｜;；]+\s*/, '');
-    s = s.replace(
-        /\s*(\[\[\s*\/\s*WORLD\s*\]\]|\[\[\\\/WORLD\]\]|<\s*\/\s*WORLD\s*>)+\s*$/gi,
-        ''
-    );
+    s = s.replace(/\s*(\[\[\s*\/\s*WORLD\s*\]\]|\[\[\\\/WORLD\]\]|<\s*\/\s*WORLD\s*>)+\s*$/gi, '');
     s = s.replace(/\s*[|｜;；]+\s*$/g, '');
     return s.trim();
 }
@@ -1815,7 +2196,7 @@ async function runDiagnostics(onProgress) {
     await update(5, t('diag.progressBase'));
     lines.push(t('diag.title'));
     lines.push(t('diag.time', { time: now.toISOString() }));
-    lines.push(t('diag.version', { version: '1.5.0' }));
+    lines.push(t('diag.version', { version: '1.6.0' }));
 
     await update(15, t('diag.progressSettings'));
     lines.push('\n' + t('diag.settings'));

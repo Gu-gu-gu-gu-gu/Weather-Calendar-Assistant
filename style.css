@@ -264,3 +264,80 @@
 .we-diagnose-copy-btn:active {
     background: rgba(255, 255, 255, 0.3);
 }
+
+.we-floating-status {
+    position: fixed;
+    left: 20px;
+    top: 120px;
+    width: min(360px, 88vw);
+    max-height: 50vh;
+    z-index: 100000;
+    background: rgba(22, 24, 28, 0.94);
+    border: 1px solid var(--SmartThemeBorderColor, #555);
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+}
+
+.we-floating-status.hidden {
+    display: none;
+}
+
+.we-floating-status-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: bold;
+    user-select: none;
+    background: var(--SmartThemeBlurTintColor, #2a2a2a);
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
+}
+
+.we-floating-status-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.we-floating-status-drag-handle {
+    border: 1px solid var(--SmartThemeBorderColor, #666);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ddd;
+    border-radius: 6px;
+    padding: 1px 8px;
+    font-size: 14px;
+    line-height: 1.2;
+    cursor: grab;
+    touch-action: none;
+}
+
+.we-floating-status-drag-handle:active {
+    cursor: grabbing;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.we-floating-status-close {
+    border: none;
+    background: transparent;
+    color: #bbb;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.we-floating-status-close:hover {
+    color: #fff;
+}
+
+.we-floating-status-display {
+    margin: 0;
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    max-height: calc(50vh - 34px);
+    color: var(--SmartThemeBodyColor, #ddd);
+}

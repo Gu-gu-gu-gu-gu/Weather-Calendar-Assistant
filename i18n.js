@@ -7,10 +7,20 @@ function getNested(obj, path) {
 }
 
 function normalizeLang(input) {
-    const s = String(input || '').trim().toLowerCase();
+    const s = String(input || '')
+        .trim()
+        .toLowerCase();
     if (!s) return '';
     if (s.startsWith('zh')) return 'zh';
-    if (s.includes('chinese') || s.includes('中文') || s.includes('简体') || s.includes('繁体') || s.includes('漢') || s.includes('汉')) return 'zh';
+    if (
+        s.includes('chinese') ||
+        s.includes('中文') ||
+        s.includes('简体') ||
+        s.includes('繁体') ||
+        s.includes('漢') ||
+        s.includes('汉')
+    )
+        return 'zh';
     if (s.startsWith('en')) return 'en';
     if (s.includes('english')) return 'en';
     return '';
@@ -45,9 +55,10 @@ function detectAutoLang() {
             }
         }
 
-        const ctx = typeof SillyTavern !== 'undefined' && typeof SillyTavern.getContext === 'function'
-            ? SillyTavern.getContext()
-            : null;
+        const ctx =
+            typeof SillyTavern !== 'undefined' && typeof SillyTavern.getContext === 'function'
+                ? SillyTavern.getContext()
+                : null;
 
         const ctxCandidates = [
             { source: 'ctx.settings.language', value: ctx?.settings?.language },
@@ -55,7 +66,10 @@ function detectAutoLang() {
             { source: 'ctx.settings.interface_language', value: ctx?.settings?.interface_language },
             { source: 'window.i18n.locale', value: window?.i18n?.locale },
             { source: 'window.i18n.language', value: window?.i18n?.language },
-            { source: 'window.SillyTavern.getContext.settings.language', value: window?.SillyTavern?.getContext?.()?.settings?.language }
+            {
+                source: 'window.SillyTavern.getContext.settings.language',
+                value: window?.SillyTavern?.getContext?.()?.settings?.language,
+            },
         ];
 
         for (const c of ctxCandidates) {
@@ -85,7 +99,7 @@ function detectAutoLang() {
             window.__WE_LANG_INFO__ = info;
             return v2;
         }
-    } catch (_) { }
+    } catch (_) {}
 
     window.__WE_LANG_INFO__ = info;
     return info.picked;

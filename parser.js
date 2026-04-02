@@ -283,10 +283,7 @@ function stripMVUBlocks(text) {
 function cleanExtractedFieldValue(raw) {
     let s = String(raw || '').trim();
     s = s.replace(/^\s*[|｜;；]+\s*/, '');
-    s = s.replace(
-        /\s*(\[\[\s*\/\s*WORLD\s*\]\]|\[\[\\\/WORLD\]\]|<\s*\/\s*WORLD\s*>)+\s*$/gi,
-        ''
-    );
+    s = s.replace(/\s*(\[\[\s*\/\s*WORLD\s*\]\]|\[\[\\\/WORLD\]\]|<\s*\/\s*WORLD\s*>)+\s*$/gi, '');
     s = s.replace(/\s*[|｜;；]+\s*$/g, '');
     return s.trim();
 }

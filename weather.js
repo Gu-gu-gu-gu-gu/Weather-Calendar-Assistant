@@ -9,20 +9,47 @@ const WEATHER_TABLE = {
         { type: 'moderate_rain', weight: 8, cn: '中雨', en: 'Moderate Rain', tempRange: [8, 16] },
         { type: 'windy', weight: 8, cn: '大风', en: 'Windy', tempRange: [10, 20] },
         { type: 'foggy', weight: 5, cn: '雾', en: 'Foggy', tempRange: [8, 15] },
-        { type: 'thunderstorm', weight: 3, cn: '雷暴', en: 'Thunderstorm', tempRange: [12, 20], extreme: true },
+        {
+            type: 'thunderstorm',
+            weight: 3,
+            cn: '雷暴',
+            en: 'Thunderstorm',
+            tempRange: [12, 20],
+            extreme: true,
+        },
         { type: 'hail', weight: 1, cn: '冰雹', en: 'Hail', tempRange: [5, 15], extreme: true },
     ],
     summer: [
         { type: 'sunny_hot', weight: 20, cn: '晴热', en: 'Sunny & Hot', tempRange: [30, 38] },
-        { type: 'partly_cloudy', weight: 15, cn: '晴间多云', en: 'Partly Cloudy', tempRange: [28, 35] },
+        {
+            type: 'partly_cloudy',
+            weight: 15,
+            cn: '晴间多云',
+            en: 'Partly Cloudy',
+            tempRange: [28, 35],
+        },
         { type: 'cloudy', weight: 10, cn: '多云', en: 'Cloudy', tempRange: [26, 32] },
         { type: 'humid', weight: 10, cn: '闷热潮湿', en: 'Humid', tempRange: [28, 36] },
         { type: 'shower', weight: 10, cn: '阵雨', en: 'Shower', tempRange: [24, 30] },
         { type: 'moderate_rain', weight: 10, cn: '中雨', en: 'Moderate Rain', tempRange: [22, 28] },
         { type: 'heavy_rain', weight: 8, cn: '大雨', en: 'Heavy Rain', tempRange: [20, 26] },
         { type: 'thunderstorm', weight: 10, cn: '雷阵雨', en: 'Thunderstorm', tempRange: [22, 30] },
-        { type: 'typhoon', weight: 2, cn: '台风', en: 'Typhoon', tempRange: [22, 28], extreme: true },
-        { type: 'heatwave', weight: 5, cn: '高温热浪', en: 'Heatwave', tempRange: [36, 42], extreme: true },
+        {
+            type: 'typhoon',
+            weight: 2,
+            cn: '台风',
+            en: 'Typhoon',
+            tempRange: [22, 28],
+            extreme: true,
+        },
+        {
+            type: 'heatwave',
+            weight: 5,
+            cn: '高温热浪',
+            en: 'Heatwave',
+            tempRange: [36, 42],
+            extreme: true,
+        },
     ],
     autumn: [
         { type: 'sunny', weight: 30, cn: '秋高气爽', en: 'Clear Autumn', tempRange: [12, 22] },
@@ -32,7 +59,14 @@ const WEATHER_TABLE = {
         { type: 'windy', weight: 13, cn: '秋风', en: 'Autumn Wind', tempRange: [8, 18] },
         { type: 'foggy', weight: 8, cn: '雾', en: 'Foggy', tempRange: [5, 14] },
         { type: 'frost', weight: 4, cn: '霜', en: 'Frost', tempRange: [0, 8] },
-        { type: 'heavy_rain', weight: 3, cn: '暴雨', en: 'Heavy Rain', tempRange: [8, 14], extreme: true },
+        {
+            type: 'heavy_rain',
+            weight: 3,
+            cn: '暴雨',
+            en: 'Heavy Rain',
+            tempRange: [8, 14],
+            extreme: true,
+        },
     ],
     winter: [
         { type: 'sunny_cold', weight: 20, cn: '晴冷', en: 'Sunny & Cold', tempRange: [-5, 5] },
@@ -43,9 +77,30 @@ const WEATHER_TABLE = {
         { type: 'sleet', weight: 5, cn: '雨夹雪', en: 'Sleet', tempRange: [-2, 3] },
         { type: 'windy_cold', weight: 10, cn: '寒风刺骨', en: 'Biting Wind', tempRange: [-10, 0] },
         { type: 'foggy', weight: 5, cn: '大雾', en: 'Dense Fog', tempRange: [-3, 3] },
-        { type: 'heavy_snow', weight: 5, cn: '大雪', en: 'Heavy Snow', tempRange: [-15, -5], extreme: true },
-        { type: 'blizzard', weight: 2, cn: '暴风雪', en: 'Blizzard', tempRange: [-20, -8], extreme: true },
-        { type: 'ice_storm', weight: 1, cn: '冰暴', en: 'Ice Storm', tempRange: [-10, -2], extreme: true },
+        {
+            type: 'heavy_snow',
+            weight: 5,
+            cn: '大雪',
+            en: 'Heavy Snow',
+            tempRange: [-15, -5],
+            extreme: true,
+        },
+        {
+            type: 'blizzard',
+            weight: 2,
+            cn: '暴风雪',
+            en: 'Blizzard',
+            tempRange: [-20, -8],
+            extreme: true,
+        },
+        {
+            type: 'ice_storm',
+            weight: 1,
+            cn: '冰暴',
+            en: 'Ice Storm',
+            tempRange: [-10, -2],
+            extreme: true,
+        },
     ],
 };
 
@@ -80,26 +135,31 @@ const WMO_MAP = {
     86: { type: 'heavy_snow', cn: '暴雪', en: 'Heavy Snow Showers', extreme: true },
     95: { type: 'thunderstorm', cn: '雷暴', en: 'Thunderstorm', extreme: true },
     96: { type: 'thunderstorm', cn: '雷暴夹冰雹', en: 'Thunderstorm with Hail', extreme: true },
-    99: { type: 'thunderstorm', cn: '强雷暴夹冰雹', en: 'Heavy Thunderstorm with Hail', extreme: true },
+    99: {
+        type: 'thunderstorm',
+        cn: '强雷暴夹冰雹',
+        en: 'Heavy Thunderstorm with Hail',
+        extreme: true,
+    },
 };
 
 const ANCIENT_TO_MODERN = {
-    '长安': '西安',
-    '洛阳': '洛阳',
-    '建康': '南京',
-    '临安': '杭州',
-    '燕京': '北京',
-    '大都': '北京',
-    '江宁': '南京',
-    '襄阳': '襄阳',
-    '开封': '开封',
-    '汴梁': '开封',
-    '姑苏': '苏州',
-    '钱塘': '杭州',
-    '金陵': '南京',
-    '成都府': '成都',
-    '幽州': '北京',
-    '渤海': '天津'
+    长安: '西安',
+    洛阳: '洛阳',
+    建康: '南京',
+    临安: '杭州',
+    燕京: '北京',
+    大都: '北京',
+    江宁: '南京',
+    襄阳: '襄阳',
+    开封: '开封',
+    汴梁: '开封',
+    姑苏: '苏州',
+    钱塘: '杭州',
+    金陵: '南京',
+    成都府: '成都',
+    幽州: '北京',
+    渤海: '天津',
 };
 
 function getSeason(month) {
@@ -142,6 +202,13 @@ export function rollWeather(month) {
     };
 }
 
+export function buildWeatherOverrideKey(dateStr, locationName, settings) {
+    const mapped = mapAncientLocation(locationName || settings?.defaultCity || '', settings);
+    const location = normalizeLocationName(mapped);
+    const locKey = location || '__NO_LOCATION__';
+    return `${dateStr}|${locKey}`;
+}
+
 export function shouldRerollWeather(oldDateStr, newDateStr, oldWeather, newLocation) {
     if (!oldWeather || !oldDateStr || !newDateStr) return true;
     if (oldDateStr !== newDateStr) return true;
@@ -150,6 +217,28 @@ export function shouldRerollWeather(oldDateStr, newDateStr, oldWeather, newLocat
 }
 
 export async function getWeatherForDate(dateStr, locationName, settings, previousWeather) {
+    const overrideKey = buildWeatherOverrideKey(dateStr, locationName, settings);
+    const manual = settings?.weatherOverrides?.[overrideKey];
+    if (manual) {
+        const month = parseInt(dateStr.slice(5, 7));
+        const mappedManual = mapAncientLocation(locationName || settings.defaultCity || '', settings);
+        const normalizedManualLoc = normalizeLocationName(mappedManual);
+        return {
+            type: manual.type || 'cloudy',
+            cn: manual.cn || '多云',
+            en: manual.en || 'Cloudy',
+            temp: typeof manual.temp === 'number' ? manual.temp : 20,
+            extreme: !!manual.extreme,
+            season: getSeason(month),
+            source: 'manual',
+            location: normalizedManualLoc,
+            isRainy: isRainyType(manual.type || 'cloudy'),
+            minTemp: typeof manual.minTemp === 'number' ? manual.minTemp : undefined,
+            maxTemp: typeof manual.maxTemp === 'number' ? manual.maxTemp : undefined,
+            diurnalRange: typeof manual.diurnalRange === 'number' ? manual.diurnalRange : undefined,
+        };
+    }
+
     const mapped = mapAncientLocation(locationName || settings.defaultCity || '', settings);
     const location = normalizeLocationName(mapped);
     if (!location) {
@@ -243,7 +332,7 @@ async function geocodeLocation(name) {
             GEO_CACHE[name] = info;
             return info;
         }
-    } catch (e) { }
+    } catch (e) {}
     return null;
 }
 
@@ -254,7 +343,7 @@ async function fetchArchiveWeather(geo, dateStr) {
         if (!resp.ok) return null;
         const data = await resp.json();
         return parseOpenMeteoDaily(data, dateStr, 'archive');
-    } catch (e) { }
+    } catch (e) {}
     return null;
 }
 
@@ -265,7 +354,7 @@ async function fetchForecastWeather(geo, dateStr) {
         if (!resp.ok) return null;
         const data = await resp.json();
         return parseOpenMeteoDaily(data, dateStr, 'forecast');
-    } catch (e) { }
+    } catch (e) {}
     return null;
 }
 
@@ -303,15 +392,24 @@ function parseOpenMeteoDaily(data, dateStr, source) {
 }
 
 function isRainyType(type) {
-    return ['light_rain', 'moderate_rain', 'heavy_rain', 'shower', 'thunderstorm', 'sleet'].includes(type);
+    return [
+        'light_rain',
+        'moderate_rain',
+        'heavy_rain',
+        'shower',
+        'thunderstorm',
+        'sleet',
+    ].includes(type);
 }
 
 function applyContinuity(baseWeather, previousWeather, settings) {
     if (!previousWeather) return baseWeather;
-    if (!settings.weatherContinuity || Math.random() > settings.weatherContinuity / 100) return baseWeather;
+    if (!settings.weatherContinuity || Math.random() > settings.weatherContinuity / 100)
+        return baseWeather;
 
     let temp = baseWeather.temp;
-    const prevTemp = typeof previousWeather.temp === 'number' ? previousWeather.temp : baseWeather.temp;
+    const prevTemp =
+        typeof previousWeather.temp === 'number' ? previousWeather.temp : baseWeather.temp;
     const jitter = settings.weatherTempJitter || 0;
     const diff = prevTemp - temp;
     const clampDiff = Math.max(-2, Math.min(2, diff)) * 0.5;
@@ -371,7 +469,7 @@ function mapAncientLocation(raw, settings) {
     if (!settings || settings.worldEra !== 'ancient') return raw;
     const base = raw.trim();
     const list = Array.isArray(settings.ancientLocationMap) ? settings.ancientLocationMap : [];
-    const hit = list.find(x => x.from && x.from.trim() === base);
+    const hit = list.find((x) => x.from && x.from.trim() === base);
     if (hit && hit.to) return hit.to.trim();
     return ANCIENT_TO_MODERN[base] || base;
 }
@@ -387,9 +485,10 @@ export function getHourlyTemperature(weather, dateTimeIso, locationName = '') {
     const dateStr = formatDate(d);
     const hour = d.getHours();
 
-    let diurnal = typeof weather.diurnalRange === 'number'
-        ? weather.diurnalRange
-        : buildDefaultDiurnalRange(weather.season || 'spring');
+    let diurnal =
+        typeof weather.diurnalRange === 'number'
+            ? weather.diurnalRange
+            : buildDefaultDiurnalRange(weather.season || 'spring');
 
     if (weather.isRainy) {
         diurnal = Math.max(1.5, diurnal * 0.75);
@@ -398,7 +497,10 @@ export function getHourlyTemperature(weather, dateTimeIso, locationName = '') {
     const amplitude = Math.max(1.2, Math.min(4.5, diurnal / 2));
     const curve = Math.cos(((hour - 15) / 12) * Math.PI);
     const offset = curve * amplitude;
-    const jitter = getDeterministicJitter(`${dateStr}|${locationName}|${weather.type}|${hour}`, 0.6);
+    const jitter = getDeterministicJitter(
+        `${dateStr}|${locationName}|${weather.type}|${hour}`,
+        0.6
+    );
 
     return Math.round(baseTemp + offset + jitter);
 }
@@ -425,7 +527,12 @@ function hashString(str) {
     return h >>> 0;
 }
 
-export function getWeatherPrompt(weather, worldEra = 'modern', dateTimeIso = '', locationName = '') {
+export function getWeatherPrompt(
+    weather,
+    worldEra = 'modern',
+    dateTimeIso = '',
+    locationName = ''
+) {
     if (!weather) return '';
     const displayTemp = getHourlyTemperature(weather, dateTimeIso, locationName);
 

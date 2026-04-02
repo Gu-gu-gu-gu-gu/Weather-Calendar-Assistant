@@ -30,9 +30,24 @@ export async function buildInjectionPrompt() {
         const lunarDate = lunarInfo.lunarDate || '农历未知';
         const eraYearText = buildEraYearText(cs, parsed.getFullYear());
         const ancientTime = formatAncientTime(hour, minute);
-        sections.push(t('prompt.timeAncient', { era: eraYearText, lunar: lunarDate, ancientTime, period: timePeriod }));
+        sections.push(
+            t('prompt.timeAncient', {
+                era: eraYearText,
+                lunar: lunarDate,
+                ancientTime,
+                period: timePeriod,
+            })
+        );
     } else {
-        sections.push(t('prompt.timeModern', { y: parsed.getFullYear(), m: parsed.getMonth() + 1, d: parsed.getDate(), time: timeStr, period: timePeriod }));
+        sections.push(
+            t('prompt.timeModern', {
+                y: parsed.getFullYear(),
+                m: parsed.getMonth() + 1,
+                d: parsed.getDate(),
+                time: timeStr,
+                period: timePeriod,
+            })
+        );
     }
 
     if (settings.calendarEnabled) {
@@ -49,7 +64,12 @@ export async function buildInjectionPrompt() {
         } else {
             try {
                 const holidayInfo = await getHolidayInfo(dateStr, settings.countryCode);
-                sections.push(t('prompt.weekDay', { week: holidayInfo.weekDayName, type: holidayInfo.dayType }));
+                sections.push(
+                    t('prompt.weekDay', {
+                        week: holidayInfo.weekDayName,
+                        type: holidayInfo.dayType,
+                    })
+                );
                 if (holidayInfo.isHoliday && holidayInfo.holidayLocalName) {
                     sections.push(t('prompt.todayHoliday', { name: holidayInfo.holidayLocalName }));
                 }
@@ -58,7 +78,13 @@ export async function buildInjectionPrompt() {
                 }
                 const nextH = await getNextHoliday(dateStr, settings.countryCode);
                 if (nextH) {
-                    sections.push(t('prompt.nextHoliday', { name: nextH.localName || nextH.name, date: nextH.dateStr, days: nextH.daysUntil }));
+                    sections.push(
+                        t('prompt.nextHoliday', {
+                            name: nextH.localName || nextH.name,
+                            date: nextH.dateStr,
+                            days: nextH.daysUntil,
+                        })
+                    );
                 }
             } catch (e) {
                 console.warn('[WorldEngine] 日历注入出错', e);
@@ -94,7 +120,12 @@ export async function buildInjectionPrompt() {
     }
 
     if (settings.weatherEnabled && cs.weatherState) {
-        const wp = getWeatherPrompt(cs.weatherState, settings.worldEra, cs.currentTime, cs.currentLocation);
+        const wp = getWeatherPrompt(
+            cs.weatherState,
+            settings.worldEra,
+            cs.currentTime,
+            cs.currentLocation
+        );
         if (wp) sections.push(wp);
     }
 
@@ -137,7 +168,7 @@ export async function updateInjection() {
         'worldEngine',
         prompt,
         settings.injectionPosition,
-        settings.injectionDepth,
+        settings.injectionDepth
     );
 }
 
@@ -156,7 +187,7 @@ function formatEraYear(n) {
 }
 
 function toChineseNumber(num) {
-    const digits = ['零','一','二','三','四','五','六','七','八','九'];
+    const digits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
     if (num < 10) return digits[num];
     if (num < 20) return num === 10 ? '十' : `十${digits[num - 10]}`;
     if (num < 100) {
@@ -186,9 +217,15 @@ function formatAncientTime(hour, minute) {
     let name = '子';
     for (const s of shichen) {
         if (s.start < s.end) {
-            if (hour >= s.start && hour < s.end) { name = s.name; break; }
+            if (hour >= s.start && hour < s.end) {
+                name = s.name;
+                break;
+            }
         } else {
-            if (hour >= s.start || hour < s.end) { name = s.name; break; }
+            if (hour >= s.start || hour < s.end) {
+                name = s.name;
+                break;
+            }
         }
     }
 
@@ -241,7 +278,7 @@ function getSolarTermName(dateStr) {
             if (detail && detail.solarTerm) return detail.solarTerm;
             if (detail && detail.solarTermName) return detail.solarTermName;
         }
-    } catch (e) { }
+    } catch (e) {}
     return '';
 }
 
@@ -251,10 +288,14 @@ function getTraditionalFestival(dateStr, lunar) {
         try {
             const list = cd.getLunarFestivals(dateStr);
             if (Array.isArray(list) && list.length > 0) {
-                const names = list.map(x => typeof x === 'string' ? x : (x.name || x.localName || x.festival || '')).filter(Boolean);
+                const names = list
+                    .map((x) =>
+                        typeof x === 'string' ? x : x.name || x.localName || x.festival || ''
+                    )
+                    .filter(Boolean);
                 if (names.length > 0) return names.join('、');
             }
-        } catch (e) { }
+        } catch (e) {}
     }
 
     if (!lunar) return '';
@@ -276,7 +317,9 @@ function getCurrentCharacterName() {
 
 function isEventForCurrentChat(ev, currentCharId) {
     if (Array.isArray(ev.characterIds) && ev.characterIds.length > 0) {
-        return currentCharId !== null && ev.characterIds.map(String).includes(String(currentCharId));
+        return (
+            currentCharId !== null && ev.characterIds.map(String).includes(String(currentCharId))
+        );
     }
     if (ev.character) {
         const name = getCurrentCharacterName();
@@ -287,7 +330,7 @@ function isEventForCurrentChat(ev, currentCharId) {
 
 function getEventOwnerName(ev) {
     if (Array.isArray(ev.characterIds) && ev.characterIds.length > 0) {
-        const names = ev.characterIds.map(id => getCharacterNameById(id)).filter(Boolean);
+        const names = ev.characterIds.map((id) => getCharacterNameById(id)).filter(Boolean);
         if (names.length > 0) return `${names.join('、')}的`;
     }
     if (ev.character) return `${ev.character}的`;
