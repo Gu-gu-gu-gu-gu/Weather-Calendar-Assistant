@@ -335,14 +335,27 @@ function updateCycleStates(dateStr) {
     const userDescription = getUserDescription();
 
     const checks = [];
-    if (context.name2) checks.push({ name: context.name2, text: charDescription });
-    if (context.name1) checks.push({ name: context.name1, text: userDescription });
+    if (context.name2)
+        checks.push({
+            name: context.name2,
+            text: charDescription,
+            rawAge: settings.ageOverrides?.[context.name2],
+        });
+    if (context.name1)
+        checks.push({
+            name: context.name1,
+            text: userDescription,
+            rawAge: settings.ageOverrides?.[context.name1],
+        });
 
-    for (const { name, text } of checks) {
+    for (const { name, text, rawAge } of checks) {
         const override = settings.genderOverrides?.[name];
         const autoInfo = detectGenderInfo(text);
         const gender = override && override !== 'auto' ? override : autoInfo.gender;
-        const age = normalizeAgeValue(settings.ageOverrides?.[name]);
+
+        const ageInput = normalizeAgeValue(rawAge);
+        const resolved = resolveAgeForDate(name, ageInput, dateStr, settings, cs.cycleStates[name]);
+        const age = resolved.age;
 
         if (gender === 'female') {
             if (isAgeBlockedForCycle(age, ageCfg)) {
@@ -351,9 +364,14 @@ function updateCycleStates(dateStr) {
             }
             if (!cs.cycleStates[name]) {
                 const init = initCycleForCharacter(name, dateStr, age, ageCfg);
-                if (init) cs.cycleStates[name] = init;
-            } else if (age !== null) {
+                if (init) {
+                    if (resolved.auto) init.ageAuto = resolved.auto;
+                    cs.cycleStates[name] = init;
+                }
+            } else {
                 cs.cycleStates[name].age = age;
+                if (resolved.auto) cs.cycleStates[name].ageAuto = resolved.auto;
+                else delete cs.cycleStates[name].ageAuto;
             }
         } else if (cs.cycleStates[name]) {
             delete cs.cycleStates[name];
@@ -364,8 +382,17 @@ function updateCycleStates(dateStr) {
         for (const item of settings.manualCharacters) {
             const name = item.name?.trim();
             const gender = item.gender;
-            const age = normalizeAgeValue(item.age);
             if (!name) continue;
+
+            const ageInput = normalizeAgeValue(item.age);
+            const resolved = resolveAgeForDate(
+                name,
+                ageInput,
+                dateStr,
+                settings,
+                cs.cycleStates[name]
+            );
+            const age = resolved.age;
 
             if (gender === 'female') {
                 if (isAgeBlockedForCycle(age, ageCfg)) {
@@ -374,9 +401,14 @@ function updateCycleStates(dateStr) {
                 }
                 if (!cs.cycleStates[name]) {
                     const init = initCycleForCharacter(name, dateStr, age, ageCfg);
-                    if (init) cs.cycleStates[name] = init;
-                } else if (age !== null) {
+                    if (init) {
+                        if (resolved.auto) init.ageAuto = resolved.auto;
+                        cs.cycleStates[name] = init;
+                    }
+                } else {
                     cs.cycleStates[name].age = age;
+                    if (resolved.auto) cs.cycleStates[name].ageAuto = resolved.auto;
+                    else delete cs.cycleStates[name].ageAuto;
                 }
             } else if (cs.cycleStates[name]) {
                 delete cs.cycleStates[name];
@@ -417,11 +449,163 @@ function updateCycleAgeHintUI() {
     $('#we-cycle-max-age').prop('disabled', !cfg.useMaxAge);
 }
 
+function parseBirthDateInput(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return null;
+    const m = s.match(/^(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})日?$/);
+    if (!m) return null;
+    const y = parseInt(m[1], 10);
+    const mon = parseInt(m[2], 10);
+    const d = parseInt(m[3], 10);
+    const dt = new Date(y, mon - 1, d);
+    if (dt.getFullYear() !== y || dt.getMonth() !== mon - 1 || dt.getDate() !== d) return null;
+    return `${y}-${String(mon).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+function parseAgeInput(raw) {
+    const s = String(raw ?? '').trim();
+    if (!s) return { ok: true, value: null };
+    if (/^\d+$/.test(s)) {
+        const n = parseInt(s, 10);
+        if (n > 0) return { ok: true, value: n };
+        return { ok: false, value: null };
+    }
+    const dob = parseBirthDateInput(s);
+    if (dob) return { ok: true, value: dob };
+    return { ok: false, value: null };
+}
+
+function parseMonthDay(mmdd) {
+    const m = String(mmdd || '')
+        .trim()
+        .match(/^(\d{2})-(\d{2})$/);
+    if (!m) return null;
+    const month = parseInt(m[1], 10);
+    const day = parseInt(m[2], 10);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    return { month, day };
+}
+
+function compareDateStr(a, b) {
+    if (a === b) return 0;
+    return a > b ? 1 : -1; // YYYY-MM-DD 可直接字典序比较
+}
+
+function safeBirthdayDate(year, month, day) {
+    // 处理 2/29 等非法日期，回退到当月最后一天
+    const lastDay = new Date(year, month, 0).getDate();
+    const dd = Math.min(day, lastDay);
+    return new Date(year, month - 1, dd);
+}
+
+function countBirthdayCrossings(startDateStr, endDateStr, month, day) {
+    const cmp = compareDateStr(startDateStr, endDateStr);
+    if (cmp === 0) return 0;
+    if (cmp > 0) return -countBirthdayCrossings(endDateStr, startDateStr, month, day);
+
+    const s = new Date(startDateStr + 'T00:00:00');
+    const e = new Date(endDateStr + 'T00:00:00');
+    let count = 0;
+
+    for (let y = s.getFullYear(); y <= e.getFullYear(); y++) {
+        const bd = safeBirthdayDate(y, month, day);
+        if (bd > s && bd <= e) count++;
+    }
+    return count;
+}
+
+function calcAgeFromDob(dobStr, dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const b = new Date(dobStr + 'T00:00:00');
+    if (isNaN(d.getTime()) || isNaN(b.getTime())) return null;
+    let age = d.getFullYear() - b.getFullYear();
+    const dm = d.getMonth() + 1;
+    const dd = d.getDate();
+    const bm = b.getMonth() + 1;
+    const bd = b.getDate();
+    if (dm < bm || (dm === bm && dd < bd)) age -= 1;
+    return Math.max(0, age);
+}
+
+function getBoundBirthdayForName(name, settings) {
+    const events = Array.isArray(settings.events) ? settings.events : [];
+    for (const ev of events) {
+        if (ev.type !== 'birthday') continue;
+        const md = parseMonthDay(ev.date);
+        if (!md) continue;
+
+        let matched = false;
+
+        if (Array.isArray(ev.characterIds) && ev.characterIds.length > 0) {
+            const names = ev.characterIds.map((id) => getCharacterNameById(id)).filter(Boolean);
+            matched = names.includes(name);
+        } else if (ev.character) {
+            matched = String(ev.character) === String(name);
+        }
+
+        if (matched) return md;
+    }
+    return null;
+}
+
+function resolveAgeForDate(name, ageInput, dateStr, settings, existingCycleData) {
+    if (ageInput === null || ageInput === undefined || ageInput === '') {
+        return { age: null, auto: null };
+    }
+
+    // 1) 生日字符串优先
+    if (typeof ageInput === 'string') {
+        const age = calcAgeFromDob(ageInput, dateStr);
+        return {
+            age: age === null ? null : age,
+            auto: { mode: 'dob', dob: ageInput, input: ageInput },
+        };
+    }
+
+    // 2/3) 数字年龄：先绑定生日，否则自然年
+    if (typeof ageInput === 'number') {
+        const birthday = getBoundBirthdayForName(name, settings);
+        const mode = birthday ? 'birthday' : 'natural';
+
+        const prev = existingCycleData?.ageAuto;
+        const samePrev =
+            prev &&
+            prev.mode === mode &&
+            prev.input === String(ageInput) &&
+            (mode !== 'birthday' ||
+                (prev.birthdayMonth === birthday.month && prev.birthdayDay === birthday.day));
+
+        const anchorDate = samePrev ? prev.anchorDate : dateStr;
+        const baseAge = samePrev ? prev.baseAge : ageInput;
+
+        let delta = 0;
+        if (mode === 'birthday') {
+            delta = countBirthdayCrossings(anchorDate, dateStr, birthday.month, birthday.day);
+        } else {
+            delta = parseInt(dateStr.slice(0, 4), 10) - parseInt(anchorDate.slice(0, 4), 10);
+        }
+
+        const age = Math.max(0, baseAge + delta);
+
+        return {
+            age,
+            auto: {
+                mode,
+                input: String(ageInput),
+                baseAge,
+                anchorDate,
+                birthdayMonth: birthday?.month ?? null,
+                birthdayDay: birthday?.day ?? null,
+            },
+        };
+    }
+
+    return { age: null, auto: null };
+}
+
 function normalizeAgeValue(v) {
-    if (v === null || v === undefined || v === '') return null;
-    const n = parseInt(v);
-    if (isNaN(n) || n <= 0) return null;
-    return n;
+    const parsed = parseAgeInput(v);
+    return parsed.ok ? parsed.value : null;
 }
 
 function getCharacterDescription() {
@@ -1120,14 +1304,13 @@ function bindSettingsEvents() {
             toastr.warning(t('toast.manualNeedName'), t('app.name'));
             return;
         }
-        if (ageRaw) {
-            const n = parseInt(ageRaw);
-            if (isNaN(n) || n <= 0) {
-                toastr.warning(t('toast.ageInvalid'), t('app.name'));
-                return;
-            }
-            age = n;
+
+        const parsedAge = parseAgeInput(ageRaw);
+        if (!parsedAge.ok) {
+            toastr.warning(t('toast.ageInvalid'), t('app.name'));
+            return;
         }
+        age = parsedAge.value; // 可能是 number、'YYYY-MM-DD' 或 null
 
         const settings = getSettings();
         if (!Array.isArray(settings.manualCharacters)) settings.manualCharacters = [];
@@ -1322,17 +1505,20 @@ function bindSettingsEvents() {
         const val = $(this).val().trim();
         const settings = getSettings();
         if (!settings.ageOverrides) settings.ageOverrides = {};
+
         if (!val) {
             delete settings.ageOverrides[name];
         } else {
-            const age = parseInt(val);
-            if (isNaN(age) || age <= 0) {
+            const parsedAge = parseAgeInput(val);
+            if (!parsedAge.ok) {
                 toastr.warning(t('toast.ageInvalid'), t('app.name'));
-                $(this).val(settings.ageOverrides?.[name] || '');
+                const oldVal = settings.ageOverrides?.[name];
+                $(this).val(oldVal === undefined || oldVal === null ? '' : String(oldVal));
                 return;
             }
-            settings.ageOverrides[name] = age;
+            settings.ageOverrides[name] = parsedAge.value; // number 或 'YYYY-MM-DD'
         }
+
         saveState();
         if (getChatState().currentTime) {
             updateCycleStates(getChatState().currentTime.split('T')[0]);
@@ -1459,9 +1645,11 @@ function loadSettingsToUI() {
     $('#we-cycle-enabled').prop('checked', s.cycleEnabled);
 
     if ($('#we-cycle-min-age').length) $('#we-cycle-min-age').val(s.cycleMinAge ?? 12);
-    if ($('#we-cycle-use-max-age').length) $('#we-cycle-use-max-age').prop('checked', s.cycleUseMaxAge !== false);
+    if ($('#we-cycle-use-max-age').length)
+        $('#we-cycle-use-max-age').prop('checked', s.cycleUseMaxAge !== false);
     if ($('#we-cycle-max-age').length) $('#we-cycle-max-age').val(s.cycleMaxAge ?? 55);
-    if ($('#we-floating-enabled').length) $('#we-floating-enabled').prop('checked', !!s.floatingStatusEnabled);
+    if ($('#we-floating-enabled').length)
+        $('#we-floating-enabled').prop('checked', !!s.floatingStatusEnabled);
 
     updateCycleAgeHintUI();
     renderEventCharacterOptions();
@@ -1746,7 +1934,11 @@ function refreshStatusDisplay() {
         if (cs.weatherState) {
             const src = cs.weatherState.source ? `(${cs.weatherState.source})` : '';
             const extreme = cs.weatherState.extreme ? t('common.extreme') : '';
-            const displayTemp = getHourlyTemperature(cs.weatherState, cs.currentTime, cs.currentLocation);
+            const displayTemp = getHourlyTemperature(
+                cs.weatherState,
+                cs.currentTime,
+                cs.currentLocation
+            );
             lines.push(
                 t('status.weather', {
                     weather: cs.weatherState.cn,
@@ -1759,7 +1951,10 @@ function refreshStatusDisplay() {
         lines.push(t('status.region', { region: settings.countryCode }));
         lines.push(
             t('status.era', {
-                era: settings.worldEra === 'ancient' ? t('ui.general.ancient') : t('ui.general.modern'),
+                era:
+                    settings.worldEra === 'ancient'
+                        ? t('ui.general.ancient')
+                        : t('ui.general.modern'),
             })
         );
         lines.push(t('status.snapshots', { count: Object.keys(cs.snapshots).length }));
@@ -2008,8 +2203,12 @@ function applyFloatingStatusPosition() {
     const box = $('#we-floating-status');
     if (!box.length) return;
 
-    let x = Number.isInteger(parseInt(s.floatingStatusPos?.x)) ? parseInt(s.floatingStatusPos.x) : 20;
-    let y = Number.isInteger(parseInt(s.floatingStatusPos?.y)) ? parseInt(s.floatingStatusPos.y) : 120;
+    let x = Number.isInteger(parseInt(s.floatingStatusPos?.x))
+        ? parseInt(s.floatingStatusPos.x)
+        : 20;
+    let y = Number.isInteger(parseInt(s.floatingStatusPos?.y))
+        ? parseInt(s.floatingStatusPos.y)
+        : 120;
 
     const maxX = Math.max(0, window.innerWidth - box.outerWidth() - 8);
     const maxY = Math.max(0, window.innerHeight - box.outerHeight() - 8);
