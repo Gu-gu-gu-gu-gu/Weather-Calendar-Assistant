@@ -4,6 +4,60 @@ import { getWeatherPrompt } from './weather.js';
 import { getCycleStatus, advanceCycle } from './cycle.js';
 import { t, getLocale } from './i18n.js';
 
+let macroRegisteredName = '';
+let macroPromptCache = '';
+
+function normalizeMacroName(input) {
+    const cleaned = String(input || '')
+        .trim()
+        .replace(/[{}]/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/[^a-zA-Z0-9_]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    return cleaned || 'world_engine';
+}
+
+function getMacroName(settings) {
+    return normalizeMacroName(settings.macroPlaceholder || 'world_engine');
+}
+
+function unregisterWorldEngineMacro() {
+    const context = SillyTavern.getContext();
+    if (!macroRegisteredName) return;
+    try {
+        if (typeof context.unregisterMacro === 'function') {
+            context.unregisterMacro(macroRegisteredName);
+        }
+    } catch (_) {}
+    macroRegisteredName = '';
+}
+
+function ensureWorldEngineMacroRegistered(settings) {
+    const context = SillyTavern.getContext();
+    const targetName = getMacroName(settings);
+
+    if (macroRegisteredName && macroRegisteredName !== targetName) {
+        unregisterWorldEngineMacro();
+    }
+
+    if (macroRegisteredName === targetName) {
+        return true;
+    }
+
+    if (typeof context.registerMacro !== 'function') {
+        return false;
+    }
+
+    try {
+        context.registerMacro(targetName, () => macroPromptCache || '');
+        macroRegisteredName = targetName;
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
 export async function buildInjectionPrompt() {
     const settings = getSettings();
     const cs = getChatState();
@@ -159,11 +213,34 @@ export async function updateInjection() {
     const context = SillyTavern.getContext();
 
     if (!settings.enabled) {
+        unregisterWorldEngineMacro();
+        macroPromptCache = '';
         context.setExtensionPrompt('worldEngine', '', 1, 0);
         return;
     }
 
     const prompt = await buildInjectionPrompt();
+    macroPromptCache = prompt;
+
+    const mode = settings.injectionMode === 'macro' ? 'macro' : 'extension';
+
+    if (mode === 'macro') {
+        const macroOk = ensureWorldEngineMacroRegistered(settings);
+
+        if (settings.macroFallbackToExtension || !macroOk) {
+            context.setExtensionPrompt(
+                'worldEngine',
+                prompt,
+                settings.injectionPosition,
+                settings.injectionDepth
+            );
+        } else {
+            context.setExtensionPrompt('worldEngine', '', 1, 0);
+        }
+        return;
+    }
+
+    unregisterWorldEngineMacro();
     context.setExtensionPrompt(
         'worldEngine',
         prompt,

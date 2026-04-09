@@ -348,9 +348,7 @@ export function extractFromMessage(messageText, settings) {
         return result;
     }
 
-    const hasCustomTimeRegex = !!settings.timeRegexCustom;
-
-    if (hasCustomTimeRegex) {
+    if (settings.timeRegexCustom) {
         try {
             const m = content.match(new RegExp(settings.timeRegexCustom));
             if (m) {
@@ -361,7 +359,7 @@ export function extractFromMessage(messageText, settings) {
         } catch (_) {}
     }
 
-    if (!hasCustomTimeRegex && !result.time && settings.timeKey) {
+    if (!result.time && settings.timeKey) {
         const v = matchKeyValueBounded(content, settings.timeKey);
         if (v) {
             result.rawTime = v;
@@ -369,7 +367,7 @@ export function extractFromMessage(messageText, settings) {
         }
     }
 
-    if (!hasCustomTimeRegex && !result.time) {
+    if (!result.time) {
         for (const k of TIME_KEYS_DEFAULT) {
             const v = matchKeyValueBounded(content, k);
             if (v) {

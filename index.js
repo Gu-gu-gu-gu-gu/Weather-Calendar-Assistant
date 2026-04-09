@@ -120,7 +120,6 @@ async function onMessageReceived(messageId) {
     const extracted = extractFromMessage(msg.mes, settings);
 
     if (!extracted.time) {
-        toastr.warning(t('toast.parseFail'), t('app.name'), { timeOut: 4000 });
         return;
     }
 
@@ -766,6 +765,23 @@ function buildSettingsHtml() {
                         </div>
                         <div class="we-hint">${t('ui.parser.worldTagPromptHint')}</div>
                         <div class="we-row">
+                            <label>${t('ui.parser.injectionMode')}</label>
+                            <select id="we-injection-mode">
+                                <option value="extension">${t('ui.parser.injectionModeExtension')}</option>
+                                <option value="macro">${t('ui.parser.injectionModeMacro')}</option>
+                            </select>
+                        </div>
+                        <div class="we-row">
+                            <label>${t('ui.parser.macroPlaceholder')}</label>
+                            <input type="text" id="we-macro-placeholder" placeholder="${t('ui.parser.macroPlaceholderPh')}" />
+                        </div>
+                        <div class="we-hint" id="we-macro-preview"></div>
+                        <div class="we-row">
+                            <label>${t('ui.parser.macroFallback')}</label>
+                            <input type="checkbox" id="we-macro-fallback" />
+                        </div>
+                        <div class="we-hint">${t('ui.parser.macroHint')}</div>
+                        <div class="we-row">
                             <label>${t('ui.parser.tagWrapper')}</label>
                             <input type="text" id="we-tag-wrapper" placeholder="${t('ui.parser.tagWrapperPh')}" />
                         </div>
@@ -1013,6 +1029,31 @@ function bindSettingsEvents() {
 
     $('#we-worldtag-prompt').on('change', function () {
         getSettings().worldTagPromptEnabled = this.checked;
+        saveState();
+        updateInjection();
+    });
+
+    $('#we-injection-mode').on('change', function () {
+        const s = getSettings();
+        s.injectionMode = this.value === 'macro' ? 'macro' : 'extension';
+        saveState();
+        updateInjectionModeUI();
+        updateInjection();
+    });
+
+    $('#we-macro-placeholder').on('change', function () {
+        const s = getSettings();
+        const normalized = normalizeMacroPlaceholder(this.value);
+        s.macroPlaceholder = normalized;
+        $(this).val(normalized);
+        saveState();
+        updateInjectionModeUI();
+        updateInjection();
+    });
+
+    $('#we-macro-fallback').on('change', function () {
+        const s = getSettings();
+        s.macroFallbackToExtension = this.checked;
         saveState();
         updateInjection();
     });
@@ -1620,6 +1661,37 @@ function updateWorldTagUI() {
     $('#we-worldtag-prompt').prop('disabled', false);
 }
 
+function normalizeMacroPlaceholder(input) {
+    const cleaned = String(input || '')
+        .trim()
+        .replace(/[{}]/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/[^a-zA-Z0-9_]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    return cleaned || 'world_engine';
+}
+
+function updateInjectionModeUI() {
+    const s = getSettings();
+    const mode = s.injectionMode === 'macro' ? 'macro' : 'extension';
+    const macroName = normalizeMacroPlaceholder(s.macroPlaceholder || 'world_engine');
+    const placeholder = `{{${macroName}}}`;
+
+    if ($('#we-injection-mode').length) $('#we-injection-mode').val(mode);
+    if ($('#we-macro-placeholder').length) $('#we-macro-placeholder').val(macroName);
+    if ($('#we-macro-fallback').length)
+        $('#we-macro-fallback').prop('checked', !!s.macroFallbackToExtension);
+
+    const isMacro = mode === 'macro';
+    $('#we-macro-placeholder').prop('disabled', !isMacro);
+    $('#we-macro-fallback').prop('disabled', !isMacro);
+
+    if ($('#we-macro-preview').length) {
+        $('#we-macro-preview').text(t('ui.parser.macroPreview', { placeholder }));
+    }
+}
+
 function loadSettingsToUI() {
     const s = getSettings();
     $('#we-ui-lang').val(s.uiLanguage || 'auto');
@@ -1630,6 +1702,9 @@ function loadSettingsToUI() {
     $('#we-init-latest').prop('checked', s.initFromLatest);
     $('#we-worldtag-mode').prop('checked', s.worldTagMode);
     $('#we-worldtag-prompt').prop('checked', s.worldTagPromptEnabled);
+    $('#we-injection-mode').val(s.injectionMode || 'extension');
+    $('#we-macro-placeholder').val(s.macroPlaceholder || 'world_engine');
+    $('#we-macro-fallback').prop('checked', !!s.macroFallbackToExtension);
     $('#we-tag-wrapper').val(s.tagWrapper);
     $('#we-time-key').val(s.timeKey);
     $('#we-location-key').val(s.locationKey);
@@ -1659,6 +1734,7 @@ function loadSettingsToUI() {
     renderManualList();
     renderCycleList();
     updateWorldTagUI();
+    updateInjectionModeUI();
     applyFloatingStatusVisibility();
     applyFloatingStatusPosition();
     syncWeatherManualEditorFromState();
@@ -1959,8 +2035,14 @@ function refreshStatusDisplay() {
         );
         lines.push(t('status.snapshots', { count: Object.keys(cs.snapshots).length }));
 
-        const cycleCount = Object.keys(cs.cycleStates).length;
-        if (cycleCount > 0) lines.push(t('status.cycle', { count: cycleCount }));
+        const cycleEntries = Object.entries(cs.cycleStates || {});
+        if (cycleEntries.length > 0) {
+            lines.push(t('status.cycleTitle', { count: cycleEntries.length }));
+            const dateStr = cs.currentTime.split('T')[0];
+            for (const [name, data] of cycleEntries) {
+                lines.push(buildStatusCycleLine(name, data, dateStr));
+            }
+        }
     }
 
     const statusText = lines.join('\n');
@@ -2395,7 +2477,7 @@ async function runDiagnostics(onProgress) {
     await update(5, t('diag.progressBase'));
     lines.push(t('diag.title'));
     lines.push(t('diag.time', { time: now.toISOString() }));
-    lines.push(t('diag.version', { version: '1.6.0' }));
+    lines.push(t('diag.version', { version: '1.8.0' }));
 
     await update(15, t('diag.progressSettings'));
     lines.push('\n' + t('diag.settings'));
@@ -2558,6 +2640,33 @@ function formatDate(d) {
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${dd}`;
+}
+
+function buildStatusCycleLine(name, cycleData, dateStr) {
+    const status = getCycleStatus(cycleData, dateStr);
+    const phaseText = status?.description || t('common.unknown');
+    const day = Number.isInteger(status?.dayInCycle) ? status.dayInCycle + 1 : 0;
+    const next = getNextCycleDate(cycleData);
+    return t('status.cycleItem', {
+        name,
+        phase: phaseText,
+        day,
+        next: next || t('common.none'),
+    });
+}
+
+function getNextCycleDate(cycleData) {
+    if (!cycleData?.lastPeriodStart) return '';
+    const base = new Date(cycleData.lastPeriodStart + 'T00:00:00');
+    if (isNaN(base.getTime())) return '';
+    const cycleLen = Number.isInteger(parseInt(cycleData.cycleLength))
+        ? parseInt(cycleData.cycleLength)
+        : 28;
+    const delay = Number.isInteger(parseInt(cycleData.delayDays))
+        ? parseInt(cycleData.delayDays)
+        : 0;
+    base.setDate(base.getDate() + cycleLen + delay);
+    return formatDate(base);
 }
 
 function getGenderLabel(gender) {
