@@ -70,6 +70,7 @@ jQuery(() => {
         bindSettingsEvents();
         loadSettingsToUI();
         ensureFloatingStatusWindow();
+        syncFloatingStatusTheme();
         refreshStatusDisplay();
         applyFloatingStatusVisibility();
 
@@ -2048,6 +2049,7 @@ function refreshStatusDisplay() {
     const statusText = lines.join('\n');
     $('#we-status-display').text(statusText);
     $('#we-floating-status-display').text(statusText);
+    syncFloatingStatusTheme();
     renderGenderOverrideList();
     renderManualList();
     renderCycleList();
@@ -2308,6 +2310,44 @@ function applyFloatingStatusVisibility() {
     if (s.floatingStatusEnabled) box.removeClass('hidden');
     else box.addClass('hidden');
     applyFloatingStatusPosition();
+    syncFloatingStatusTheme();
+}
+
+function syncFloatingStatusTheme() {
+    const box = $('#we-floating-status');
+    if (!box.length) return;
+
+    const { bgColor, textColor } = getReferenceMessageColors();
+    box.css('--we-floating-bg', bgColor);
+    box.css('--we-floating-color', textColor);
+
+    $('#we-floating-status-header').css({
+        background: bgColor,
+        color: textColor,
+    });
+    $('#we-floating-status-display').css({
+        color: textColor,
+    });
+}
+
+function getReferenceMessageColors() {
+    const bodyStyle = getComputedStyle(document.body);
+    const fallbackBg =
+        bodyStyle.getPropertyValue('--SmartThemeBlurTintColor').trim() || 'rgba(22,24,28,0.94)';
+    const fallbackText =
+        bodyStyle.getPropertyValue('--SmartThemeBodyColor').trim() || '#f5f5f5';
+
+    const latest = $('.mes.bot_mes .mes_text').last();
+    if (latest.length) {
+        const styles = getComputedStyle(latest[0]);
+        const bg =
+            styles.backgroundColor && styles.backgroundColor !== 'rgba(0, 0, 0, 0)'
+                ? styles.backgroundColor
+                : fallbackBg;
+        const color = styles.color || fallbackText;
+        return { bgColor: bg, textColor: color };
+    }
+    return { bgColor: fallbackBg, textColor: fallbackText };
 }
 
 function getLatestAiMessage() {

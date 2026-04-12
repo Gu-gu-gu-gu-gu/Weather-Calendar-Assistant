@@ -272,7 +272,8 @@
     width: min(360px, 88vw);
     max-height: 50vh;
     z-index: 100000;
-    background: rgba(22, 24, 28, 0.94);
+    background: var(--we-floating-bg, var(--SmartThemeBlurTintColor, #1a1a1a));
+    color: var(--we-floating-color, var(--SmartThemeBodyColor, #ddd));
     border: 1px solid var(--SmartThemeBorderColor, #555);
     border-radius: 8px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
@@ -291,7 +292,8 @@
     font-size: 12px;
     font-weight: bold;
     user-select: none;
-    background: var(--SmartThemeBlurTintColor, #2a2a2a);
+    background: var(--we-floating-bg, var(--SmartThemeBlurTintColor, #2a2a2a));
+    color: var(--we-floating-color, var(--SmartThemeBodyColor, #ddd));
     border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
 }
 
@@ -339,5 +341,5 @@
     white-space: pre-wrap;
     overflow-y: auto;
     max-height: calc(50vh - 34px);
-    color: var(--SmartThemeBodyColor, #ddd);
+    color: var(--we-floating-color, var(--SmartThemeBodyColor, #ddd));
 }
