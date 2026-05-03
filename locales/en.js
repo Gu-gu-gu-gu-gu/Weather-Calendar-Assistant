@@ -82,7 +82,7 @@ export const EN = {
         parser: {
             worldTagMode: 'Force WORLD tag',
             worldTagModeHint:
-                'When enabled, only parse [[WORLD]]...[[/WORLD]] and disable regex/field parsing.',
+                'When enabled, only parse  and disable regex/field parsing.',
             worldTagPrompt: 'Inject WORLD prompt',
             worldTagPromptHint: 'Disable if you already enforce WORLD format elsewhere.',
             injectionMode: 'Injection mode',
@@ -150,6 +150,7 @@ export const EN = {
         },
         cycle: {
             enable: 'Enable cycle',
+            pregnancyEnable: 'Enable pregnancy system',
             hint: 'Auto scan character/user descriptions and generate cycle for female characters.',
             minAge: 'Min age',
             useMaxAge: 'Use max age',
@@ -229,6 +230,14 @@ export const EN = {
         snapshots: '📦 Snapshots: {count}',
         cycleTitle: '🩸 Cycle tracking: {count} characters',
         cycleItem: '  - {name}: {phase} | Day {day} | Next expected {next}',
+        pregnancyTitle: '🤰 Pregnancy tracking: {count} characters',
+        pregnancyItemPregnant:
+            '  - {name}: week {week} (trimester {trimester}) | due {due} | {text}',
+        pregnancyItemEnded: '  - {name}: {text}',
+        conceptionDebugTitle: '🤰 Conception Debug',
+        conceptionDebugLine1: '  - {name} | phase:{phase} | base:{base}% | final:{final}% | roll:{roll} | result:{result}',
+        conceptionDebugLine2: '  - Behavior: risk={risk} | inside={inside} | protection={protection} | fertility={fertility}',
+        conceptionDebugLine3: '  - Factors: cycle={cycleFactor} | risk={riskFactor} | protection={protectionFactor} | age={ageFactor} | random={randomFactor}',
     },
     diag: {
         title: '==== WorldEngine Diagnostic Report ====',
@@ -299,7 +308,17 @@ export const EN = {
         cycleHint:
             '(Cycle should naturally affect energy, mood and behavior, without needing explicit mention every time.)',
         worldTagGuide:
-            'At the end of each reply, append a single line (do not omit or change):\n[[WORLD]] location=City | time=Time[[/WORLD]]\n\nRules:\n- location must be a city name (e.g. Shanghai / Tokyo / Paris)\n- use key=value format, fields separated by " | "\n- must be on a separate line\n- time must be in YYYY-MM-DD HH:mm or era format',
+            'At the end of each reply, append a single line (do not omit or change):\n\n\nRules:\n- location must be a city name (e.g. Shanghai / Tokyo / Paris)\n- use key=value format, fields separated by " | "\n- must be on a separate line\n- time must be in YYYY-MM-DD HH:mm or era format',
+        worldTagPregnancyGuide:
+            'If this turn includes NSFW interaction, append in the same WORLD line: target=name | nsfw=0/1 | risk=none/low/medium/high | inside=0/1 | protection=none/condom/pill/iud/withdrawal/sterilized/unknown',
+        worldTagPregnancyGuideDetailed:
+            'NSFW field rules:\n- target=name: female character involved in NSFW this turn (multiple names with +, e.g. JiangYu+LinWan)\n- nsfw=1: explicit sex in this turn, otherwise 0\n- inside=1: explicit internal ejaculation, otherwise 0\n- risk: none/no contact, low/protected edge contact, medium/protected intercourse, high/unprotected with internal ejaculation\n- protection: none/condom/pill/iud/withdrawal/sterilized/unknown (multiple with +, e.g. condom+pill)',
+        pregnancyTitle: 'Pregnancy tracking:',
+        pregnancyLinePregnant:
+            '- {name}: week {week} (trimester {trimester}), {text}, due {due}',
+        pregnancyLineEnded: '- {name}: {text}',
+        pregnancyHint:
+            '(Pregnancy should naturally affect stamina, mood, behavior and risk tolerance, without rigid medical narration.)',
         end: '[/World Engine]',
         solarTerm: 'Solar term: {name}',
         festival: '🎉 Festival: {name}',
@@ -414,12 +433,36 @@ export const EN = {
         ovulation: 'Ovulation phase, energetic and positive',
         lutealPms: 'PMS phase, mood swings and discomfort',
         luteal: 'Luteal phase, stable condition',
+
+        softSkipped: 'Cycle feels irregular for now',
+        softMenstruation: 'Body feels more sensitive today (day {day}), lower stamina and tolerance',
+        softFollicular: 'Recovery is going well, energy and mood are rising',
+        softOvulation: 'Overall state is active and upbeat today',
+        softPms: 'More sensitive these days, mood and body response may fluctuate',
+        softLuteal: 'Overall steady, but needs more rest and care',
+
         ancientSkipped: 'Cycle skipped; qi and blood imbalance',
         ancientMenstruation: 'Day {day} of menstruation, rest recommended',
         ancientFollicular: 'Follicular phase, energy recovers',
         ancientOvulation: 'Ovulation phase, high spirits',
         ancientPms: 'Premenstrual, mood fluctuates',
         ancientLuteal: 'Luteal phase, steady state',
+
+        ancientMenstruationSoft: 'Day {day}, qi and blood are weaker, better to rest',
+        ancientFollicularSoft: 'Qi and blood are recovering, spirits improving',
+        ancientOvulationSoft: 'State is strong and lively today',
+        ancientPmsSoft: 'Body and mood are easier to fluctuate lately',
+        ancientLutealSoft: 'Overall stable, avoid overexertion',
+    },
+    pregnancy: {
+        state: {
+            early: 'Early pregnancy, fatigue or mild discomfort possible',
+            middle: 'Middle pregnancy, relatively stable state',
+            late: 'Late pregnancy, physical burden increases',
+            delivery: 'Near delivery, requires close care',
+            miscarriage: 'Pregnancy loss, needs recovery and care',
+            postpartum: 'Delivery completed, entering postpartum recovery',
+        },
     },
     calendar: {
         noEvent: 'No events yet.',

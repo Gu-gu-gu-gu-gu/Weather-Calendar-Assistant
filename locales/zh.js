@@ -149,6 +149,7 @@ export const ZH = {
         },
         cycle: {
             enable: '启用生理周期',
+            pregnancyEnable: '启用孕期系统',
             hint: '自动扫描角色/User设定中的性别关键词，为女性角色生成经期周期。',
             minAge: '最小年龄',
             useMaxAge: '启用上限',
@@ -228,6 +229,20 @@ export const ZH = {
         snapshots: '📦 快照数: {count}',
         cycleTitle: '🩸 生理周期追踪: {count}个角色',
         cycleItem: '  - {name}：{phase}｜周期第{day}天｜下次预计 {next}',
+        pregnancyTitle: '🤰 孕期状态: {count}个角色',
+        pregnancyItemPregnant: '  - {name}：孕{week}周（第{trimester}孕期）｜预产期 {due}｜{text}',
+        pregnancyItemEnded: '  - {name}：{text}',
+        conceptionDebugTitle: '🤰 受孕判定明细',
+        conceptionDebugLine1: '  - {name}｜阶段:{phase}｜基础率:{base}%｜最终率:{final}%｜Roll:{roll}｜结果:{result}',
+        conceptionDebugLine2: '  - 行为: risk={risk} | inside={inside} | protection={protection} | fertility={fertility}',
+        conceptionDebugLine3: '  - 系数: cycle={cycleFactor} | risk={riskFactor} | protection={protectionFactor} | age={ageFactor} | random={randomFactor}',
+        conceptionNaturalLine1: '  - {name}：当前处于{phase}，本轮判定结果：{result}',
+        conceptionNaturalLine2: '  - 记录到的行为：风险等级 {risk}，{inside}，防护方式 {protection}',
+        conceptionNaturalLine3: '  - 本轮受孕概率约 {final}% ，随机判定值 {rollPct}% ',
+        conceptionResultHit: '命中受孕',
+        conceptionResultMiss: '未命中受孕',
+        insideYes: '体内射精',
+        insideNo: '非体内射精',
     },
     diag: {
         title: '==== WorldEngine 诊断报告 ====',
@@ -283,6 +298,14 @@ export const ZH = {
         parseReasonTimeFail: '命中时间文本但解析失败',
         parseReasonNoTime: '未命中任何时间',
         parseRegexError: '正则错误: {err}',
+        conceptionTitle: '[🤰 受孕判定明细]',
+        conceptionEmpty: '- 暂无最近一次受孕判定记录',
+        conceptionLine1:
+            '- 角色: {name} | 周期阶段: {phase} | 基础率: {base}% | 最终率: {final}% | Roll: {roll} | 结果: {result}',
+        conceptionLine2:
+            '- 行为: risk={risk}, inside={inside}, protection={protection}, fertility={fertility}',
+        conceptionLine3:
+            '- 系数: cycle={cycleFactor}, risk={riskFactor}, protection={protectionFactor}, age={ageFactor}, random={randomFactor}',
     },
     prompt: {
         title: '[📅 World Engine - 世界状态]',
@@ -297,7 +320,19 @@ export const ZH = {
         cycleTitle: '角色生理状态：',
         cycleHint: '（生理状态应自然地影响角色的精力、情绪和行为，但不必每次都明确提及）',
         worldTagGuide:
-            '每轮回复末尾必须追加一行（不要省略、不要改写格式）：\n[[WORLD]] location=城市 | time=时间[[/WORLD]]\n\n要求：\n- location 必须包含“城市”（如：上海 / Tokyo / Paris）\n- 严格使用 key=value 格式，字段之间用 " | " 分隔\n- 该行必须单独一行，不能与正文混在一起\n- time 必须使用YYYY年MM月DD日 HH:mm或年号x年x月xx x时x刻的格式',
+            '每轮回复末尾必须追加一行（不要省略、不要改写格式）：\n[[WORLD]] location=xxx | time=YYYY年MM月DD日 HH:mm[[/WORLD]]\n要求：\n- location 必须包含“城市”（如：上海 / Tokyo / Paris）\n- 严格使用 key=value 格式，字段之间用 " | " 分隔\n- 该行必须单独一行，不能与正文混在一起\n- time 必须使用YYYY年MM月DD日 HH:mm或年号x年x月xx x时x刻的格式',
+        worldTagOneLineStrict:
+            '重要：nsfw/risk/inside/protection 必须与 location/time 写在同一个 [[WORLD]]...[[/WORLD]] 内，禁止另起一行。',
+        worldTagPregnancyGuide:
+            '若本轮含NSFW互动，请在同一WORLD行追加：target=角色名 | nsfw=0/1 | risk=none/low/medium/high | inside=0/1 | protection=none/condom/pill/iud/withdrawal/sterilized/unknown',
+        worldTagPregnancyGuideDetailed:
+            'NSFW字段填写规则：\n- target=角色名：本轮发生NSFW互动的女性角色名（多名可用+连接，如 苏念+林晚）\n- nsfw=1：本轮有明确性行为；否则填0\n- inside=1：明确体内射精；体外/未射精填0\n- risk：none(无性接触) / low(边缘接触或防护完整) / medium(有实质行为但有防护) / high(无防护且体内射精)\n- protection：none/condom/pill/iud/withdrawal/sterilized/unknown（多项可用+连接，如 condom+pill）',
+        worldTagPregnancyRiskGuide:
+            '若角色已怀孕，且本轮出现高风险事件，再追加：preg_risk=none/low/medium/high | risk_type=impact/bdsm/fall/violence/accident/other',
+        pregnancyTitle: '孕期追踪：',
+        pregnancyLinePregnant: '- {name}：孕{week}周（第{trimester}孕期），{text}，预产期{due}',
+        pregnancyLineEnded: '- {name}：{text}',
+        pregnancyHint: '（孕期状态应自然影响体力、情绪、行动偏好与风险承受，不需要生硬医学播报）',
         end: '[/World Engine]',
         solarTerm: '节气：{name}',
         festival: '🎉 今日佳节：{name}',
@@ -411,12 +446,36 @@ export const ZH = {
         ovulation: '排卵期，精力充沛，情绪较好',
         lutealPms: '经前期，可能出现情绪波动、胸胀、食欲变化（PMS）',
         luteal: '黄体期，状态平稳',
+
+        softSkipped: '这段时间状态有些紊乱，身体节律不太稳定',
+        softMenstruation: '今天身体偏虚一些（第{day}天），耐受和体力会下降',
+        softFollicular: '最近恢复得不错，精力和心情都在慢慢回升',
+        softOvulation: '今天整体状态偏好，体力与兴致都更积极',
+        softPms: '这几天会更敏感些，情绪和身体感受容易起伏',
+        softLuteal: '整体状态平稳，但需要比平时更多放松和照顾',
+
         ancientSkipped: '本月经期未至，气血失衡',
         ancientMenstruation: '经期第{day}日，气血偏虚，宜静养',
         ancientFollicular: '卵泡期，气血渐盛，精神回升',
         ancientOvulation: '排卵期，精神充沛，情绪较佳',
         ancientPms: '经前时节，情绪易起伏，体感稍胀',
         ancientLuteal: '黄体期，状态平稳',
+
+        ancientMenstruationSoft: '今日气血偏虚（第{day}日），宜缓行静养',
+        ancientFollicularSoft: '近来气血渐复，神思与体力皆有起色',
+        ancientOvulationSoft: '今朝精神较盛，气机流畅，状态颇佳',
+        ancientPmsSoft: '近日体感与情志易波动，宜多安抚调息',
+        ancientLutealSoft: '整体尚稳，宜温养身心，不可过劳',
+    },
+    pregnancy: {
+        state: {
+            early: '孕早期，容易疲倦或轻微不适',
+            middle: '孕中期，状态相对稳定',
+            late: '孕晚期，行动负担明显增加',
+            delivery: '临近分娩期，需要重点照护',
+            miscarriage: '妊娠中断，需恢复与照护',
+            postpartum: '已分娩，进入产后恢复期',
+        },
     },
     calendar: {
         noEvent: '尚未添加纪念日。',
