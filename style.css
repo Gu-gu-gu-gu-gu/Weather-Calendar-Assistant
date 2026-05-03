@@ -320,6 +320,19 @@
     background: rgba(255, 255, 255, 0.2);
 }
 
+.we-floating-status-minimize {
+    border: none;
+    background: transparent;
+    color: #bbb;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.we-floating-status-minimize:hover {
+    color: #fff;
+}
+
 .we-floating-status-close {
     border: none;
     background: transparent;
@@ -342,4 +355,29 @@
     overflow-y: auto;
     max-height: calc(50vh - 34px);
     color: var(--we-floating-color, var(--SmartThemeBodyColor, #ddd));
+}
+
+.we-floating-mini {
+    position: fixed;
+    left: 20px;
+    top: 120px;
+    width: 42px;
+    height: 42px;
+    border-radius: 21px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--SmartThemeBlurTintColor, #1a1a1a);
+    color: var(--SmartThemeBodyColor, #ddd);
+    border: 1px solid var(--SmartThemeBorderColor, #555);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+    z-index: 100001;
+    font-size: 18px;
+    cursor: pointer;
+    user-select: none;
+    touch-action: none;
+}
+
+.we-floating-mini.hidden {
+    display: none;
 }

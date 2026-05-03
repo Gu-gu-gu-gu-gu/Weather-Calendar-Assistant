@@ -26,6 +26,16 @@ export const DEFAULT_SETTINGS = {
     cycleMinAge: 12,
     cycleUseMaxAge: true,
     cycleMaxAge: 55,
+    pregnancyEnabled: true,
+    conceptionEnabled: true,
+    pregnancyPromptMode: 'basic',
+    pregnancyRiskDetailEnabled: false,
+    pregnancyNeedWorldFields: true,
+    pregnancyFallbackKeyword: false,
+    pregnancyChanceCap: 0.35,
+    pregnancyEnableMiscarriage: false,
+    pregnancyMiscarriageRisk: 0.02,
+    fertilityProfiles: {},
     genderOverrides: {},
     ageOverrides: {},
     manualCharacters: [],
@@ -41,7 +51,9 @@ export const DEFAULT_SETTINGS = {
     regexPresetLastId: '',
     uiLanguage: 'auto',
     floatingStatusEnabled: false,
+    floatingStatusMinimized: false,
     floatingStatusPos: { x: 20, y: 120 },
+    floatingMiniPos: { x: 20, y: 120 },
 };
 
 export function getSettings() {
@@ -68,6 +80,7 @@ export function getChatState() {
             snapshots: {},
             weatherState: null,
             cycleStates: {},
+            pregnancyStates: {},
             lastParsedMessageId: -1,
             eraYearLabel: '',
             eraYearBase: null,
@@ -92,6 +105,7 @@ export function saveSnapshot(messageId) {
         currentLocation: cs.currentLocation,
         weatherState: cs.weatherState ? JSON.parse(JSON.stringify(cs.weatherState)) : null,
         cycleStates: JSON.parse(JSON.stringify(cs.cycleStates)),
+        pregnancyStates: JSON.parse(JSON.stringify(cs.pregnancyStates || {})),
         eraYearLabel: cs.eraYearLabel,
         eraYearBase: cs.eraYearBase,
         eraYearBaseGregorian: cs.eraYearBaseGregorian,
@@ -109,6 +123,7 @@ export function restoreSnapshot(messageId) {
     cs.currentLocation = snap.currentLocation;
     cs.weatherState = snap.weatherState;
     cs.cycleStates = JSON.parse(JSON.stringify(snap.cycleStates));
+    cs.pregnancyStates = JSON.parse(JSON.stringify(snap.pregnancyStates || {}));
     cs.eraYearLabel = snap.eraYearLabel || '';
     cs.eraYearBase = snap.eraYearBase ?? null;
     cs.eraYearBaseGregorian = snap.eraYearBaseGregorian ?? null;

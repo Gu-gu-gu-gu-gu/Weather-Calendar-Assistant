@@ -186,6 +186,10 @@ export async function buildInjectionPrompt() {
     if (settings.cycleEnabled && Object.keys(cs.cycleStates).length > 0) {
         const cycleLines = [];
         for (const [name, data] of Object.entries(cs.cycleStates)) {
+            const p = cs.pregnancyStates?.[name];
+            if (p && p.isPregnant) {
+                continue;
+            }
             const updated = advanceCycle({ ...data }, dateStr);
             cs.cycleStates[name] = updated;
             const status = getCycleStatus(updated, dateStr);
@@ -201,8 +205,49 @@ export async function buildInjectionPrompt() {
         }
     }
 
+    if (settings.pregnancyEnabled && cs.pregnancyStates) {
+        const pregLines = [];
+        for (const [name, p] of Object.entries(cs.pregnancyStates)) {
+            if (!p) continue;
+            if (p.isPregnant) {
+                pregLines.push(
+                    t('prompt.pregnancyLinePregnant', {
+                        name,
+                        week: Number.isInteger(p.week) ? p.week : 0,
+                        trimester: p.trimester || 1,
+                        due: p.dueDate || t('common.none'),
+                        text: p.statusText || t('common.unknown'),
+                    })
+                );
+            } else if (p.statusText) {
+                pregLines.push(
+                    t('prompt.pregnancyLineEnded', {
+                        name,
+                        text: p.statusText,
+                    })
+                );
+            }
+        }
+        if (pregLines.length > 0) {
+            sections.push(t('prompt.pregnancyTitle'));
+            sections.push(...pregLines);
+            sections.push(t('prompt.pregnancyHint'));
+        }
+    }
+
     if (settings.worldTagMode && settings.worldTagPromptEnabled) {
         sections.push(t('prompt.worldTagGuide'));
+        sections.push(t('prompt.worldTagOneLineStrict'));
+
+        if (settings.pregnancyEnabled) {
+            sections.push(t('prompt.worldTagPregnancyGuideDetailed'));
+            sections.push(t('prompt.worldTagPregnancyGuide'));
+        }
+
+        const hasPregnant = Object.values(cs.pregnancyStates || {}).some((p) => p && p.isPregnant);
+        if (settings.pregnancyEnabled && hasPregnant) {
+            sections.push(t('prompt.worldTagPregnancyRiskGuide'));
+        }
     }
     sections.push(t('prompt.end'));
     return sections.join('\n');
@@ -422,21 +467,37 @@ function getCharacterNameById(id) {
 
 function formatCycleDescription(status, worldEra) {
     if (!status) return '';
-    if (worldEra !== 'ancient') return status.description || '';
-    if (status.phase === 'skipped') return t('cycle.ancientSkipped');
+    if (worldEra === 'ancient') {
+        if (status.phase === 'skipped') return t('cycle.ancientSkipped');
+        if (status.phase === 'menstruation') {
+            const day = (status.dayInCycle ?? 0) + 1;
+            return t('cycle.ancientMenstruationSoft', { day });
+        }
+        if (status.phase === 'follicular') return t('cycle.ancientFollicularSoft');
+        if (status.phase === 'ovulation') return t('cycle.ancientOvulationSoft');
+        if (status.phase === 'luteal') {
+            if ((status.description || '').includes('经前') || (status.description || '').includes('PMS')) {
+                return t('cycle.ancientPmsSoft');
+            }
+            return t('cycle.ancientLutealSoft');
+        }
+        return t('cycle.ancientLutealSoft');
+    }
+
+    if (status.phase === 'skipped') return t('cycle.softSkipped');
     if (status.phase === 'menstruation') {
         const day = (status.dayInCycle ?? 0) + 1;
-        return t('cycle.ancientMenstruation', { day });
+        return t('cycle.softMenstruation', { day });
     }
-    if (status.phase === 'follicular') return t('cycle.ancientFollicular');
-    if (status.phase === 'ovulation') return t('cycle.ancientOvulation');
+    if (status.phase === 'follicular') return t('cycle.softFollicular');
+    if (status.phase === 'ovulation') return t('cycle.softOvulation');
     if (status.phase === 'luteal') {
-        if ((status.description || '').includes('经前期')) {
-            return t('cycle.ancientPms');
+        if ((status.description || '').includes('经前') || (status.description || '').toLowerCase().includes('pms')) {
+            return t('cycle.softPms');
         }
-        return t('cycle.ancientLuteal');
+        return t('cycle.softLuteal');
     }
-    return status.description || '';
+    return t('cycle.softLuteal');
 }
 
 function getTimePeriod(hour) {

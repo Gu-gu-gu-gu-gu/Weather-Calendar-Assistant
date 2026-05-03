@@ -221,7 +221,10 @@ export async function getWeatherForDate(dateStr, locationName, settings, previou
     const manual = settings?.weatherOverrides?.[overrideKey];
     if (manual) {
         const month = parseInt(dateStr.slice(5, 7));
-        const mappedManual = mapAncientLocation(locationName || settings.defaultCity || '', settings);
+        const mappedManual = mapAncientLocation(
+            locationName || settings.defaultCity || '',
+            settings
+        );
         const normalizedManualLoc = normalizeLocationName(mappedManual);
         return {
             type: manual.type || 'cloudy',

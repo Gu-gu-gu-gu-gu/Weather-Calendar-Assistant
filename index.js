@@ -18,6 +18,13 @@ import {
     buildWeatherOverrideKey,
 } from './weather.js';
 import { detectGenderInfo, initCycleForCharacter, getCycleStatus } from './cycle.js';
+import {
+    parseWorldNsfwFields,
+    detectNsfwFallbackWeak,
+    evaluateConception,
+    advancePregnancyState,
+    evaluatePregnancyRiskEvent,
+} from './pregnancy.js';
 import { updateInjection, buildInjectionPrompt } from './injector.js';
 import { t } from './i18n.js';
 
@@ -153,6 +160,9 @@ async function onMessageReceived(messageId) {
         updateCycleStates(newDateStr);
     }
 
+    updatePregnancyStatesForDate(newDateStr);
+    processPregnancyFromMessage(msg.mes, newDateStr);
+
     saveSnapshot(messageId);
     saveState();
     refreshStatusDisplay();
@@ -200,6 +210,9 @@ async function onMessageEdited(messageId) {
                 cs.weatherState
             );
         }
+
+        updatePregnancyStatesForDate(extracted.time.dateStr);
+        processPregnancyFromMessage(msg.mes, extracted.time.dateStr);
 
         saveSnapshot(messageId);
     } else {
@@ -259,6 +272,7 @@ function resetWorldState() {
     cs.snapshots = {};
     cs.weatherState = null;
     cs.cycleStates = {};
+    cs.pregnancyStates = {};
     cs.lastParsedMessageId = -1;
     cs.eraYearLabel = '';
     cs.eraYearBase = null;
@@ -318,6 +332,8 @@ async function tryInitFromLatest() {
                 updateCycleStates(extracted.time.dateStr);
             }
 
+            updatePregnancyStatesForDate(extracted.time.dateStr);
+
             saveSnapshot(i);
             saveState();
             return;
@@ -358,6 +374,10 @@ function updateCycleStates(dateStr) {
         const age = resolved.age;
 
         if (gender === 'female') {
+            if (isCharacterPregnantNow(name)) {
+                delete cs.cycleStates[name];
+                continue;
+            }
             if (isAgeBlockedForCycle(age, ageCfg)) {
                 delete cs.cycleStates[name];
                 continue;
@@ -395,6 +415,10 @@ function updateCycleStates(dateStr) {
             const age = resolved.age;
 
             if (gender === 'female') {
+                if (isCharacterPregnantNow(name)) {
+                    delete cs.cycleStates[name];
+                    continue;
+                }
                 if (isAgeBlockedForCycle(age, ageCfg)) {
                     delete cs.cycleStates[name];
                     continue;
@@ -415,6 +439,114 @@ function updateCycleStates(dateStr) {
             }
         }
     }
+}
+
+function updatePregnancyStatesForDate(dateStr) {
+    const settings = getSettings();
+    const cs = getChatState();
+    if (!cs.pregnancyStates) cs.pregnancyStates = {};
+    if (!settings.pregnancyEnabled) return;
+
+    for (const [name, state] of Object.entries(cs.pregnancyStates)) {
+        cs.pregnancyStates[name] = advancePregnancyState(state, dateStr, settings);
+    }
+}
+
+function processPregnancyFromMessage(messageText, dateStr) {
+    const settings = getSettings();
+    const cs = getChatState();
+
+    if (!settings.pregnancyEnabled) return;
+    if (!settings.cycleEnabled) return;
+    if (!dateStr) return;
+
+    if (!cs.pregnancyStates) cs.pregnancyStates = {};
+    if (!cs.cycleStates) return;
+
+    let nsfwInfo = parseWorldNsfwFields(messageText);
+
+    if (settings.pregnancyNeedWorldFields) {
+        const hasStructured =
+            nsfwInfo.nsfw !== null ||
+            nsfwInfo.inside !== null ||
+            !!nsfwInfo.risk ||
+            !!nsfwInfo.protection;
+        if (!hasStructured) {
+            if (!settings.pregnancyFallbackKeyword) return;
+            nsfwInfo = detectNsfwFallbackWeak(messageText);
+        }
+    } else if (settings.pregnancyFallbackKeyword) {
+        const hasStructured =
+            nsfwInfo.nsfw !== null ||
+            nsfwInfo.inside !== null ||
+            !!nsfwInfo.risk ||
+            !!nsfwInfo.protection;
+        if (!hasStructured) {
+            nsfwInfo = detectNsfwFallbackWeak(messageText);
+        }
+    }
+
+    const targetNames = String(nsfwInfo?.target || '')
+        .split('+')
+        .map((x) => x.trim())
+        .filter(Boolean);
+    for (const [name, cycleData] of Object.entries(cs.cycleStates)) {
+        const cycleStatus = getCycleStatus(cycleData, dateStr);
+        if (targetNames.length > 0 && !targetNames.includes(name)) continue;
+        if (!cycleStatus) continue;
+
+        const profile = settings.fertilityProfiles?.[name] || 'normal';
+        const pregState = cs.pregnancyStates[name] || {
+            isPregnant: false,
+            conceptionDate: '',
+            dueDate: '',
+            trimester: 0,
+            week: 0,
+            statusText: '',
+            lastUpdateDate: '',
+        };
+
+        const result = evaluateConception({
+            dateStr,
+            actorName: name,
+            cycleStatus,
+            cycleData,
+            pregnancyState: pregState,
+            nsfwInfo,
+            settings,
+            fertilityProfile: profile,
+        });
+
+        const detail = result?.detail || {};
+        cs.lastConceptionDebug = {
+            name,
+            phase: cycleStatus?.phase || 'unknown',
+            baseRate: Number((detail.baseChanceRaw ?? detail.baseChance ?? 0) * 100).toFixed(2),
+            finalRate: Number((detail.finalChance ?? 0) * 100).toFixed(2),
+            roll: Number(detail.roll ?? 0).toFixed(4),
+            success: !!(result.changed && result.next),
+            risk: detail.risk || (nsfwInfo?.risk || 'unknown'),
+            inside: detail.inside ? 1 : 0,
+            protection: detail.protection || (nsfwInfo?.protection || 'unknown'),
+            fertilityProfile: profile,
+            cycleFactor: Number(detail.cycleFactor ?? 1).toFixed(3),
+            riskFactor: Number(detail.riskFactor ?? 1).toFixed(3),
+            protectionFactor: Number(detail.protectionFactor ?? 1).toFixed(3),
+            ageFactor: Number(detail.ageFactor ?? 1).toFixed(3),
+            randomFactor: Number(detail.randomJitter ?? 1).toFixed(3),
+            reason: result?.reason || '',
+            at: dateStr,
+        };
+
+        if (result.changed && result.next) {
+            cs.pregnancyStates[name] = result.next;
+        }
+        const latestPreg = cs.pregnancyStates[name] || pregState;
+        const riskResult = evaluatePregnancyRiskEvent(latestPreg, nsfwInfo, settings);
+        if (riskResult.changed && riskResult.next) {
+            cs.pregnancyStates[name] = riskResult.next;
+        }
+   }
 }
 
 function getCycleAgeConfig(settings = getSettings()) {
@@ -440,6 +572,12 @@ function getCycleAgeHintText() {
     const cfg = getCycleAgeConfig();
     const maxText = cfg.useMaxAge ? `≥${cfg.maxAge}` : t('common.noUpperLimit');
     return t('ui.cycle.ageRangeHint', { min: cfg.minAge, maxText });
+}
+
+function isCharacterPregnantNow(name) {
+    const cs = getChatState();
+    const p = cs.pregnancyStates?.[name];
+    return !!(p && p.isPregnant);
 }
 
 function updateCycleAgeHintUI() {
@@ -898,6 +1036,10 @@ function buildSettingsHtml() {
                             <label>${t('ui.cycle.enable')}</label>
                             <input type="checkbox" id="we-cycle-enabled" />
                         </div>
+                        <div class="we-row">
+                            <label>${t('ui.cycle.pregnancyEnable')}</label>
+                            <input type="checkbox" id="we-pregnancy-enabled" />
+                        </div>
                         <div class="we-hint">${t('ui.cycle.hint')}</div>
                         <div id="we-gender-list"></div>
                         <div class="we-hint" style="margin-top:6px;">${t('ui.cycle.manualHint')}</div>
@@ -1336,6 +1478,13 @@ function bindSettingsEvents() {
         updateInjection();
     });
 
+    $('#we-pregnancy-enabled').on('change', function () {
+        getSettings().pregnancyEnabled = this.checked;
+        saveState();
+        refreshStatusDisplay();
+        updateInjection();
+    });
+
     $('#we-add-manual').on('click', function () {
         const name = $('#we-manual-name').val().trim();
         const gender = $('#we-manual-gender').val();
@@ -1396,6 +1545,7 @@ function bindSettingsEvents() {
         cs.currentLocation = '';
         cs.snapshots = {};
         cs.weatherState = null;
+        cs.pregnancyStates = {};
         cs.lastParsedMessageId = -1;
         await tryInitFromLatest();
         refreshStatusDisplay();
@@ -1414,6 +1564,7 @@ function bindSettingsEvents() {
         cs.currentLocation = '';
         cs.snapshots = {};
         cs.weatherState = null;
+        cs.pregnancyStates = {};
         cs.lastParsedMessageId = -1;
 
         const context = SillyTavern.getContext();
@@ -1719,6 +1870,7 @@ function loadSettingsToUI() {
     $('#we-weather-continuity').val(s.weatherContinuity);
     $('#we-weather-jitter').val(s.weatherTempJitter);
     $('#we-cycle-enabled').prop('checked', s.cycleEnabled);
+    $('#we-pregnancy-enabled').prop('checked', s.pregnancyEnabled !== false);
 
     if ($('#we-cycle-min-age').length) $('#we-cycle-min-age').val(s.cycleMinAge ?? 12);
     if ($('#we-cycle-use-max-age').length)
@@ -2044,6 +2196,41 @@ function refreshStatusDisplay() {
                 lines.push(buildStatusCycleLine(name, data, dateStr));
             }
         }
+
+        if (cs.lastConceptionDebug) {
+            const dbg = cs.lastConceptionDebug;
+            lines.push(t('status.conceptionDebugTitle'));
+            lines.push(
+                t('status.conceptionNaturalLine1', {
+                    name: dbg.name || t('common.unknown'),
+                    phase: getPhaseLabel(dbg.phase),
+                    result: dbg.success ? t('status.conceptionResultHit') : t('status.conceptionResultMiss'),
+                })
+            );
+            lines.push(
+                t('status.conceptionNaturalLine2', {
+                    risk: dbg.risk || 'unknown',
+                    inside: dbg.inside ? t('status.insideYes') : t('status.insideNo'),
+                    protection: dbg.protection || 'unknown',
+                })
+            );
+            lines.push(
+                t('status.conceptionNaturalLine3', {
+                    final: dbg.finalRate ?? 0,
+                    rollPct: (Number(dbg.roll ?? 0) * 100).toFixed(2),
+                })
+            );
+        }
+
+        const pregEntries = Object.entries(cs.pregnancyStates || {}).filter(
+            ([, p]) => p && (p.isPregnant || p.statusText)
+        );
+        if (pregEntries.length > 0) {
+            lines.push(t('status.pregnancyTitle', { count: pregEntries.length }));
+            for (const [name, p] of pregEntries) {
+                lines.push(buildStatusPregnancyLine(name, p));
+            }
+        }
     }
 
     const statusText = lines.join('\n');
@@ -2189,11 +2376,13 @@ function ensureFloatingStatusWindow() {
                 <span>${t('ui.sections.status')}</span>
                 <div class="we-floating-status-actions">
                     <button id="we-floating-status-drag-handle" class="we-floating-status-drag-handle">⠿</button>
+                    <button id="we-floating-status-minimize" class="we-floating-status-minimize">–</button>
                     <button id="we-floating-status-close" class="we-floating-status-close">×</button>
                 </div>
             </div>
             <pre id="we-floating-status-display" class="we-floating-status-display"></pre>
         </div>
+        <div id="we-floating-mini" class="we-floating-mini hidden">📊</div>
     `);
 
     $('#we-floating-status-close').on('click', function () {
@@ -2204,7 +2393,22 @@ function ensureFloatingStatusWindow() {
         applyFloatingStatusVisibility();
     });
 
+    $('#we-floating-status-minimize').on('click', function () {
+        const s = getSettings();
+        s.floatingStatusMinimized = true;
+        saveState();
+        applyFloatingStatusVisibility();
+    });
+
+    $('#we-floating-mini').on('click', function () {
+        const s = getSettings();
+        s.floatingStatusMinimized = false;
+        saveState();
+        applyFloatingStatusVisibility();
+    });
+
     const box = $('#we-floating-status');
+    const mini = $('#we-floating-mini');
     const dragHandle = $('#we-floating-status-drag-handle');
 
     let dragging = false;
@@ -2277,6 +2481,64 @@ function ensureFloatingStatusWindow() {
     dragHandle.on('pointercancel', stopDrag);
     dragHandle.on('lostpointercapture', stopDrag);
 
+    let miniDragging = false;
+    let miniPointerId = null;
+    let miniStartX = 0;
+    let miniStartY = 0;
+    let miniBaseLeft = 0;
+    let miniBaseTop = 0;
+
+    mini.on('pointerdown', function (e) {
+        if (e.button !== undefined && e.button !== 0) return;
+        miniDragging = true;
+        miniPointerId = e.pointerId;
+        miniStartX = e.clientX;
+        miniStartY = e.clientY;
+        miniBaseLeft = parseFloat(mini.css('left')) || 0;
+        miniBaseTop = parseFloat(mini.css('top')) || 0;
+        const el = mini.get(0);
+        if (el && el.setPointerCapture) el.setPointerCapture(miniPointerId);
+        e.preventDefault();
+    });
+
+    mini.on('pointermove', function (e) {
+        if (!miniDragging || e.pointerId !== miniPointerId) return;
+        const dx = e.clientX - miniStartX;
+        const dy = e.clientY - miniStartY;
+        let left = miniBaseLeft + dx;
+        let top = miniBaseTop + dy;
+        const maxX = Math.max(0, window.innerWidth - mini.outerWidth() - 8);
+        const maxY = Math.max(0, window.innerHeight - mini.outerHeight() - 8);
+        left = Math.max(0, Math.min(maxX, left));
+        top = Math.max(0, Math.min(maxY, top));
+        mini.css({ left: `${Math.round(left)}px`, top: `${Math.round(top)}px` });
+        e.preventDefault();
+    });
+
+    function stopMiniDrag(e) {
+        if (!miniDragging) return;
+        if (e && e.pointerId !== undefined && e.pointerId !== miniPointerId) return;
+        miniDragging = false;
+        const s = getSettings();
+        const left = parseFloat(mini.css('left')) || 0;
+        const top = parseFloat(mini.css('top')) || 0;
+        s.floatingMiniPos = { x: Math.round(left), y: Math.round(top) };
+        saveState();
+        if (miniPointerId !== null) {
+            const el = mini.get(0);
+            if (el && el.releasePointerCapture) {
+                try {
+                    el.releasePointerCapture(miniPointerId);
+                } catch (_) {}
+            }
+        }
+        miniPointerId = null;
+    }
+
+    mini.on('pointerup', stopMiniDrag);
+    mini.on('pointercancel', stopMiniDrag);
+    mini.on('lostpointercapture', stopMiniDrag);
+
     $(window).on('resize.weFloating', function () {
         applyFloatingStatusPosition();
     });
@@ -2285,6 +2547,7 @@ function ensureFloatingStatusWindow() {
 function applyFloatingStatusPosition() {
     const s = getSettings();
     const box = $('#we-floating-status');
+    const mini = $('#we-floating-mini');
     if (!box.length) return;
 
     let x = Number.isInteger(parseInt(s.floatingStatusPos?.x))
@@ -2299,16 +2562,40 @@ function applyFloatingStatusPosition() {
 
     x = Math.max(0, Math.min(maxX, x));
     y = Math.max(0, Math.min(maxY, y));
-
     box.css({ left: `${x}px`, top: `${y}px` });
+
+    if (mini.length) {
+        let mx = Number.isInteger(parseInt(s.floatingMiniPos?.x)) ? parseInt(s.floatingMiniPos.x) : 20;
+        let my = Number.isInteger(parseInt(s.floatingMiniPos?.y)) ? parseInt(s.floatingMiniPos.y) : 120;
+        const miniMaxX = Math.max(0, window.innerWidth - mini.outerWidth() - 8);
+        const miniMaxY = Math.max(0, window.innerHeight - mini.outerHeight() - 8);
+        mx = Math.max(0, Math.min(miniMaxX, mx));
+        my = Math.max(0, Math.min(miniMaxY, my));
+        mini.css({ left: `${mx}px`, top: `${my}px` });
+    }
 }
 
 function applyFloatingStatusVisibility() {
     const s = getSettings();
     const box = $('#we-floating-status');
+    const mini = $('#we-floating-mini');
     if (!box.length) return;
-    if (s.floatingStatusEnabled) box.removeClass('hidden');
-    else box.addClass('hidden');
+
+    if (!s.floatingStatusEnabled) {
+        box.addClass('hidden');
+        if (mini.length) mini.addClass('hidden');
+        applyFloatingStatusPosition();
+        return;
+    }
+
+    if (s.floatingStatusMinimized) {
+        box.addClass('hidden');
+        if (mini.length) mini.removeClass('hidden');
+    } else {
+        box.removeClass('hidden');
+        if (mini.length) mini.addClass('hidden');
+    }
+
     applyFloatingStatusPosition();
     syncFloatingStatusTheme();
 }
@@ -2555,6 +2842,41 @@ async function runDiagnostics(onProgress) {
     lines.push(t('diag.stateCycle', { val: Object.keys(cs.cycleStates || {}).length }));
     lines.push(t('diag.stateSnap', { val: Object.keys(cs.snapshots || {}).length }));
 
+    if (cs.lastConceptionDebug) {
+        const dbg = cs.lastConceptionDebug;
+        lines.push(t('diag.conceptionTitle'));
+        lines.push(
+            t('diag.conceptionLine1', {
+                name: dbg.name || t('common.unknown'),
+                phase: dbg.phase || t('common.unknown'),
+                base: dbg.baseRate ?? 0,
+                final: dbg.finalRate ?? 0,
+                roll: dbg.roll ?? 0,
+                result: dbg.success ? t('diag.ok') : t('diag.fail'),
+            })
+        );
+        lines.push(
+            t('diag.conceptionLine2', {
+                risk: dbg.risk || 'none',
+                inside: dbg.inside ?? 0,
+                protection: dbg.protection || 'unknown',
+                fertility: dbg.fertilityProfile || 'normal',
+            })
+        );
+        lines.push(
+            t('diag.conceptionLine3', {
+                cycleFactor: dbg.cycleFactor ?? 1,
+                riskFactor: dbg.riskFactor ?? 1,
+                protectionFactor: dbg.protectionFactor ?? 1,
+                ageFactor: dbg.ageFactor ?? 1,
+                randomFactor: dbg.randomFactor ?? 1,
+            })
+        );
+    } else {
+        lines.push(t('diag.conceptionTitle'));
+        lines.push(t('diag.conceptionEmpty'));
+    }
+
     await update(40, t('diag.progressParse'));
     lines.push('\n' + t('diag.parse'));
     lines.push(...buildParseDiagnostics(settings));
@@ -2695,6 +3017,23 @@ function buildStatusCycleLine(name, cycleData, dateStr) {
     });
 }
 
+function buildStatusPregnancyLine(name, p) {
+    if (!p) return `  - ${name}: ${t('common.unknown')}`;
+    if (p.isPregnant) {
+        return t('status.pregnancyItemPregnant', {
+            name,
+            week: Number.isInteger(p.week) ? p.week : 0,
+            trimester: p.trimester || 1,
+            due: p.dueDate || t('common.none'),
+            text: p.statusText || t('common.unknown'),
+        });
+    }
+    return t('status.pregnancyItemEnded', {
+        name,
+        text: p.statusText || t('common.none'),
+    });
+}
+
 function getNextCycleDate(cycleData) {
     if (!cycleData?.lastPeriodStart) return '';
     const base = new Date(cycleData.lastPeriodStart + 'T00:00:00');
@@ -2718,4 +3057,13 @@ function getGenderLabel(gender) {
 
 function joinList(arr) {
     return arr.join(t('common.listSep'));
+}
+
+function getPhaseLabel(phase) {
+    if (phase === 'menstruation') return '经期';
+    if (phase === 'follicular') return '卵泡期';
+    if (phase === 'ovulation') return '排卵期';
+    if (phase === 'luteal') return '黄体期';
+    if (phase === 'skipped') return '周期跳过';
+    return t('common.unknown');
 }
