@@ -293,6 +293,14 @@ export const EN = {
         parseReasonTimeFail: 'Time text matched but failed to parse',
         parseReasonNoTime: 'No time matched',
         parseRegexError: 'Regex error: {err}',
+        conceptionTitle: '[🤰 Conception Debug]',
+        conceptionEmpty: '- No recent conception record',
+        conceptionLine1:
+            '- Character: {name} | Phase: {phase} | Base: {base}% | Final: {final}% | Roll: {roll} | Result: {result}',
+        conceptionLine2:
+            '- Behavior: risk={risk}, inside={inside}, protection={protection}, fertility={fertility}',
+        conceptionLine3:
+            '- Factors: cycle={cycleFactor}, risk={riskFactor}, protection={protectionFactor}, age={ageFactor}, random={randomFactor}',
     },
     prompt: {
         title: '[📅 World Engine - World State]',
@@ -311,8 +319,12 @@ export const EN = {
             'At the end of each reply, append a single line (do not omit or change):\n\n\nRules:\n- location must be a city name (e.g. Shanghai / Tokyo / Paris)\n- use key=value format, fields separated by " | "\n- must be on a separate line\n- time must be in YYYY-MM-DD HH:mm or era format',
         worldTagPregnancyGuide:
             'If this turn includes NSFW interaction, append in the same WORLD line: target=name | nsfw=0/1 | risk=none/low/medium/high | inside=0/1 | protection=none/condom/pill/iud/withdrawal/sterilized/unknown',
+        worldTagOneLineStrict:
+            'Important: nsfw/risk/inside/protection must be in the SAME  line as location/time. Do not place them on a new line.',
         worldTagPregnancyGuideDetailed:
             'NSFW field rules:\n- target=name: female character involved in NSFW this turn (multiple names with +, e.g. JiangYu+LinWan)\n- nsfw=1: explicit sex in this turn, otherwise 0\n- inside=1: explicit internal ejaculation, otherwise 0\n- risk: none/no contact, low/protected edge contact, medium/protected intercourse, high/unprotected with internal ejaculation\n- protection: none/condom/pill/iud/withdrawal/sterilized/unknown (multiple with +, e.g. condom+pill)',
+        worldTagPregnancyRiskGuide:
+            'If the character is already pregnant and this turn includes a high-risk event, append: preg_risk=none/low/medium/high | risk_type=impact/bdsm/fall/violence/accident/other',
         pregnancyTitle: 'Pregnancy tracking:',
         pregnancyLinePregnant:
             '- {name}: week {week} (trimester {trimester}), {text}, due {due}',
