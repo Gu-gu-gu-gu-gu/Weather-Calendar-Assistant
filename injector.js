@@ -467,37 +467,38 @@ function getCharacterNameById(id) {
 
 function formatCycleDescription(status, worldEra) {
     if (!status) return '';
+
     if (worldEra === 'ancient') {
-        if (status.phase === 'skipped') return t('cycle.ancientSkipped');
+        if (status.phase === 'skipped') return `经期：${t('cycle.ancientSkipped')}`;
         if (status.phase === 'menstruation') {
             const day = (status.dayInCycle ?? 0) + 1;
-            return t('cycle.ancientMenstruationSoft', { day });
+            return `经期第${day}日（${t('cycle.ancientMenstruationSoft', { day })}）`;
         }
-        if (status.phase === 'follicular') return t('cycle.ancientFollicularSoft');
-        if (status.phase === 'ovulation') return t('cycle.ancientOvulationSoft');
+        if (status.phase === 'follicular') return `卵泡期（${t('cycle.ancientFollicularSoft')}）`;
+        if (status.phase === 'ovulation') return `排卵期（${t('cycle.ancientOvulationSoft')}）`;
         if (status.phase === 'luteal') {
             if ((status.description || '').includes('经前') || (status.description || '').includes('PMS')) {
-                return t('cycle.ancientPmsSoft');
+                return `经前期（${t('cycle.ancientPmsSoft')}）`;
             }
-            return t('cycle.ancientLutealSoft');
+            return `黄体期（${t('cycle.ancientLutealSoft')}）`;
         }
-        return t('cycle.ancientLutealSoft');
+        return `黄体期（${t('cycle.ancientLutealSoft')}）`;
     }
 
-    if (status.phase === 'skipped') return t('cycle.softSkipped');
+    if (status.phase === 'skipped') return `周期波动（${t('cycle.softSkipped')}）`;
     if (status.phase === 'menstruation') {
         const day = (status.dayInCycle ?? 0) + 1;
-        return t('cycle.softMenstruation', { day });
+        return `经期第${day}天（${t('cycle.softMenstruation', { day })}）`;
     }
-    if (status.phase === 'follicular') return t('cycle.softFollicular');
-    if (status.phase === 'ovulation') return t('cycle.softOvulation');
+    if (status.phase === 'follicular') return `卵泡期（${t('cycle.softFollicular')}）`;
+    if (status.phase === 'ovulation') return `排卵期（${t('cycle.softOvulation')}）`;
     if (status.phase === 'luteal') {
         if ((status.description || '').includes('经前') || (status.description || '').toLowerCase().includes('pms')) {
-            return t('cycle.softPms');
+            return `经前期（${t('cycle.softPms')}）`;
         }
-        return t('cycle.softLuteal');
+        return `黄体期（${t('cycle.softLuteal')}）`;
     }
-    return t('cycle.softLuteal');
+    return `黄体期（${t('cycle.softLuteal')}）`;
 }
 
 function getTimePeriod(hour) {
