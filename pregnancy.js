@@ -61,6 +61,8 @@ export function parseWorldNsfwFields(messageText) {
         protection: '',
         pregRisk: '',
         riskType: '',
+        abortion: '',
+        abortionType: '',
     };
 
     const text = String(messageText || '');
@@ -105,6 +107,8 @@ export function parseWorldNsfwFields(messageText) {
     const targetRaw = readField('target');
     const pregRiskRaw = readField('preg_risk');
     const riskTypeRaw = readField('risk_type');
+    const abortionRaw = readField('abortion');
+    const abortionTypeRaw = readField('abortion_type');
 
     if (nsfwRaw) {
         const v = nsfwRaw.toLowerCase();
@@ -123,6 +127,8 @@ export function parseWorldNsfwFields(messageText) {
     result.target = targetRaw ? targetRaw.trim() : '';
     result.pregRisk = pregRiskRaw ? pregRiskRaw.toLowerCase() : '';
     result.riskType = riskTypeRaw ? riskTypeRaw.toLowerCase() : '';
+    result.abortion = abortionRaw ? abortionRaw.toLowerCase() : '';
+    result.abortionType = abortionTypeRaw ? abortionTypeRaw.toLowerCase() : '';
 
     return result;
 }
@@ -388,5 +394,45 @@ export function evaluatePregnancyRiskEvent(pregnancyState, nsfwInfo, settings) {
             ended: 'risk_event',
         },
         detail: { pregRisk, riskType, chance, roll, typeFactor, weekFactor },
+    };
+}
+
+export function evaluateAbortionEvent(pregnancyState, nsfwInfo) {
+    if (!pregnancyState || !pregnancyState.isPregnant) {
+        return { changed: false, reason: 'not_pregnant' };
+    }
+
+    const abortion = nsfwInfo?.abortion || '';
+    const abortionType = nsfwInfo?.abortionType || '';
+
+    const yesSet = new Set(['1', 'true', 'yes', 'y']);
+    if (!yesSet.has(String(abortion).toLowerCase())) {
+        return { changed: false, reason: 'no_abortion_event' };
+    }
+
+    const type = abortionType || 'unknown';
+    let statusText = t('pregnancy.state.miscarriage');
+
+    if (type === 'medical' || type === 'drug') {
+        statusText = '已进行药流，进入恢复期';
+    } else if (type === 'surgical') {
+        statusText = '已进行人流，进入恢复期';
+    } else if (type === 'spontaneous') {
+        statusText = t('pregnancy.state.miscarriage');
+    }
+
+    return {
+        changed: true,
+        reason: 'abortion_event',
+        next: {
+            ...pregnancyState,
+            isPregnant: false,
+            conceptionDate: '',
+            dueDate: '',
+            trimester: 0,
+            week: 0,
+            statusText,
+            ended: `abortion_${type}`,
+        },
     };
 }

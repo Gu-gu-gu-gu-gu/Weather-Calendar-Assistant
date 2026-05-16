@@ -24,6 +24,7 @@ import {
     evaluateConception,
     advancePregnancyState,
     evaluatePregnancyRiskEvent,
+    evaluateAbortionEvent,
 } from './pregnancy.js';
 import { updateInjection, buildInjectionPrompt } from './injector.js';
 import { t } from './i18n.js';
@@ -439,6 +440,14 @@ function updateCycleStates(dateStr) {
             }
         }
     }
+
+    if (cs.pregnancyStates) {
+        for (const [name, p] of Object.entries(cs.pregnancyStates)) {
+            if (p && p.isPregnant && cs.cycleStates[name]) {
+                delete cs.cycleStates[name];
+            }
+        }
+    }
 }
 
 function updatePregnancyStatesForDate(dateStr) {
@@ -545,6 +554,15 @@ function processPregnancyFromMessage(messageText, dateStr) {
         const riskResult = evaluatePregnancyRiskEvent(latestPreg, nsfwInfo, settings);
         if (riskResult.changed && riskResult.next) {
             cs.pregnancyStates[name] = riskResult.next;
+        }
+
+        const afterRisk = cs.pregnancyStates[name] || latestPreg;
+        const abortionResult = evaluateAbortionEvent(afterRisk, nsfwInfo);
+        if (abortionResult.changed && abortionResult.next) {
+            cs.pregnancyStates[name] = abortionResult.next;
+            if (cs.cycleStates[name]) {
+                delete cs.cycleStates[name];
+            }
         }
    }
 }
@@ -2804,7 +2822,7 @@ async function runDiagnostics(onProgress) {
     await update(5, t('diag.progressBase'));
     lines.push(t('diag.title'));
     lines.push(t('diag.time', { time: now.toISOString() }));
-    lines.push(t('diag.version', { version: '1.8.0' }));
+    lines.push(t('diag.version', { version: '1.10.0' }));
 
     await update(15, t('diag.progressSettings'));
     lines.push('\n' + t('diag.settings'));

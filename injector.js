@@ -5,7 +5,9 @@ import { getCycleStatus, advanceCycle } from './cycle.js';
 import { t, getLocale } from './i18n.js';
 
 let macroRegisteredName = '';
+let macroRegisteredFormatName = '';
 let macroPromptCache = '';
+let macroFormatCache = '';
 
 function normalizeMacroName(input) {
     const cleaned = String(input || '')
@@ -58,7 +60,41 @@ function ensureWorldEngineMacroRegistered(settings) {
     }
 }
 
-export async function buildInjectionPrompt() {
+function getFormatMacroName(settings) {
+    return `${getMacroName(settings)}_format`;
+}
+
+function ensureWorldEngineFormatMacroRegistered(settings) {
+    const context = SillyTavern.getContext();
+    const targetName = getFormatMacroName(settings);
+
+    if (macroRegisteredFormatName && macroRegisteredFormatName !== targetName) {
+        try {
+            if (typeof context.unregisterMacro === 'function') {
+                context.unregisterMacro(macroRegisteredFormatName);
+            }
+        } catch (_) {}
+        macroRegisteredFormatName = '';
+    }
+
+    if (macroRegisteredFormatName === targetName) {
+        return true;
+    }
+
+    if (typeof context.registerMacro !== 'function') {
+        return false;
+    }
+
+    try {
+        context.registerMacro(targetName, () => macroFormatCache || '');
+        macroRegisteredFormatName = targetName;
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+export async function buildInjectionStatePrompt() {
     const settings = getSettings();
     const cs = getChatState();
 
@@ -253,6 +289,36 @@ export async function buildInjectionPrompt() {
     return sections.join('\n');
 }
 
+export async function buildInjectionPrompt() {
+    const statePrompt = await buildInjectionStatePrompt();
+    const formatPrompt = buildInjectionFormatPrompt();
+    return [statePrompt, formatPrompt].filter(Boolean).join('\n');
+}
+
+export function buildInjectionFormatPrompt() {
+    const settings = getSettings();
+    const cs = getChatState();
+
+    if (!settings.enabled) return '';
+    if (!(settings.worldTagMode && settings.worldTagPromptEnabled)) return '';
+
+    const sections = [];
+    sections.push(t('prompt.worldTagGuide'));
+    sections.push(t('prompt.worldTagOneLineStrict'));
+
+    if (settings.pregnancyEnabled) {
+        sections.push(t('prompt.worldTagPregnancyGuideDetailed'));
+        sections.push(t('prompt.worldTagPregnancyGuide'));
+    }
+
+    const hasPregnant = Object.values(cs.pregnancyStates || {}).some((p) => p && p.isPregnant);
+    if (settings.pregnancyEnabled && hasPregnant) {
+        sections.push(t('prompt.worldTagPregnancyRiskGuide'));
+    }
+
+    return sections.join('\n');
+}
+
 export async function updateInjection() {
     const settings = getSettings();
     const context = SillyTavern.getContext();
@@ -264,15 +330,19 @@ export async function updateInjection() {
         return;
     }
 
-    const prompt = await buildInjectionPrompt();
-    macroPromptCache = prompt;
+    const statePrompt = await buildInjectionStatePrompt();
+    const formatPrompt = buildInjectionFormatPrompt();
+    const prompt = [statePrompt, formatPrompt].filter(Boolean).join('\n');
+    macroPromptCache = statePrompt;
+    macroFormatCache = formatPrompt;
 
     const mode = settings.injectionMode === 'macro' ? 'macro' : 'extension';
 
     if (mode === 'macro') {
         const macroOk = ensureWorldEngineMacroRegistered(settings);
+        const macroFormatOk = ensureWorldEngineFormatMacroRegistered(settings);
 
-        if (settings.macroFallbackToExtension || !macroOk) {
+        if (settings.macroFallbackToExtension || !macroOk || !macroFormatOk) {
             context.setExtensionPrompt(
                 'worldEngine',
                 prompt,
